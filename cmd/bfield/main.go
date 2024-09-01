@@ -221,6 +221,11 @@ func main() {
 {{.UsageString}}
 Extra Help:
 
+` + style.WithS("Thanks", 4) + `
+
+  Huge thanks to Graham Banks <gbanksnz at gmail.com> for the opening books
+which Battlefield is currently using.
+
 ` + style.WithS("Time Control Format", 4) + `
 
   Time control format must consist of one or more stages separated by ":". Each
@@ -228,13 +233,13 @@ stage must have one of the following formats: T, M/T, T+I or M/T+I, where M is
 the number of moves in the stage, T is the amount of time in seconds given for
 the stage, and I is the increment in seconds per each move. Note that the last
 stage is repeated. You can also specify different time control for the first
-and the second engine. To do this, you must separate time control for white and
-black with "|".
+and the second engine. To do this, you must separate time control for both
+engines with "|".
 
   For example, "40/900+5:900+5" means 15 minutes for 40 moves plus 5 seconds
 each move. After 40 moves pass, you are given 15 minutes for the rest of the
-game plus 5 seconds each move. And "300|240" means 5 minutes per game for
-white, and 4 minutes per game for black.
+game plus 5 seconds for each move. And "300|240" means 5 minutes per game for
+first, and 4 minutes per game for second.
 
 ` + style.WithS("SoFGameSet Format", 4) + `
 
@@ -260,7 +265,7 @@ white, and 4 minutes per game for black.
 	}
 	cmd.Flags().IntVarP(
 		&aFixedTimeMsec, "time-msec", "t", 0,
-		"run engines on fixed time (in milliseconds)",
+		"run engines on fixed time (in milliseconds), legacy variant of -T",
 	)
 	cmd.Flags().DurationVarP(
 		&aFixedTime, "time", "T", 0,
@@ -277,11 +282,13 @@ white, and 4 minutes per game for black.
 	)
 	cmd.Flags().StringVarP(
 		&aPGNBook, "pgn-book", "p", "",
-		"start games from PGNs found in the file",
+		"start games from PGN lines found in the file",
 	)
 	cmd.Flags().StringVarP(
 		&aBuiltinBook, "builtin-book", "b", "gb2020",
-		"start games using a built-in opening book\n(available: \"gb2020\", \"gb2014\")",
+		"start games using a built-in opening book\n"+
+			"the built-in opening books are made by Graham Banks <gbanksnz at gmail.com>\n"+
+			"(available: \"gb2020\", \"gb2014\")",
 	)
 	cmd.Flags().IntVarP(
 		&aScoreThreshold, "score-threshold", "s", 0,
@@ -289,11 +296,11 @@ white, and 4 minutes per game for black.
 	)
 	cmd.Flags().DurationVarP(
 		&aTimeMargin, "time-margin", "M", 20*time.Millisecond,
-		"extra time to think after deadline\n(increase this if your engine times out in fixed-time mode)",
+		"extra time for engine to think after deadline\n(increase this if your engine times out in fixed-time mode)",
 	)
 	cmd.Flags().BoolVarP(
 		&aQuiet, "quiet", "q", false,
-		"do not report progress",
+		"do not report progress, show only warnings and the final result",
 	)
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
