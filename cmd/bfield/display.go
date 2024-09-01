@@ -10,7 +10,7 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/field"
-	"github.com/alex65536/day20/pkg/style"
+	"github.com/alex65536/day20/internal/util/style"
 )
 
 const maxDuration = time.Duration(math.MaxInt64)

@@ -18,8 +18,8 @@ import (
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/field"
 	"github.com/alex65536/day20/internal/opening"
-	"github.com/alex65536/day20/pkg/randutil"
-	"github.com/alex65536/day20/pkg/style"
+	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/style"
 )
 
 var (

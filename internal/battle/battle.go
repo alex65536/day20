@@ -11,7 +11,7 @@ import (
 	"github.com/alex65536/go-chess/util/maybe"
 
 	"github.com/alex65536/day20/internal/opening"
-	"github.com/alex65536/day20/pkg/util"
+	"github.com/alex65536/day20/internal/util"
 )
 
 type Options struct {
