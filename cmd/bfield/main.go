@@ -28,19 +28,20 @@ var (
 )
 
 var (
-	aJobs           int
-	aPGNOut         string
-	aSGSOut         string
-	aGames          int
-	aFixedTimeMsec  int
-	aFixedTime      time.Duration
-	aControl        string
-	aFENBook        string
-	aPGNBook        string
-	aBuiltinBook    string
-	aScoreThreshold int
-	aTimeMargin     time.Duration
-	aQuiet          bool
+	aJobs              int
+	aPGNOut            string
+	aSGSOut            string
+	aGames             int
+	aFixedTimeMsec     int
+	aFixedTime         time.Duration
+	aControl           string
+	aFENBook           string
+	aPGNBook           string
+	aBuiltinBook       string
+	aScoreThreshold    int
+	aTimeMargin        time.Duration
+	aQuiet             bool
+	aNoFlushAfterWrite bool
 )
 
 var cmd = cobra.Command{
@@ -192,6 +193,9 @@ Battlefield is a tool to run matches between chess engines.
 			Writer: field.WriterConfig{
 				PGN: pgnOut,
 				SGS: sgsOut,
+				Opts: field.WriterOptions{
+					NoFlushAfterWrite: aNoFlushAfterWrite,
+				},
 			},
 			Book:    book,
 			First:   first,
@@ -301,6 +305,10 @@ first, and 4 minutes per game for second.
 	cmd.Flags().BoolVarP(
 		&aQuiet, "quiet", "q", false,
 		"do not report progress, show only warnings and the final result",
+	)
+	cmd.Flags().BoolVarP(
+		&aNoFlushAfterWrite, "no-flush", "F", false,
+		"do not flush data into PGN or SGS file after each game",
 	)
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
