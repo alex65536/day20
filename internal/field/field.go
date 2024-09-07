@@ -64,7 +64,7 @@ func Fight(ctx context.Context, o Options, c Config) (Status, error) {
 						battle.Options.TimeControl = maybe.Some(ctrl)
 					}
 				}
-				game, warn, err := battle.Do(gctx)
+				game, warn, err := battle.Do(gctx, nil)
 				if err != nil {
 					return fmt.Errorf("battle: %w", err)
 				}

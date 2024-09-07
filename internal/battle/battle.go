@@ -14,6 +14,12 @@ import (
 	"github.com/alex65536/day20/internal/util"
 )
 
+type Watcher interface {
+	OnGameInited(game *GameExt)
+	OnGameUpdated(game *GameExt, clk maybe.Maybe[clock.Clock])
+	OnEngineInfo(color chess.Color, info uci.Info)
+}
+
 type Options struct {
 	TimeControl maybe.Maybe[clock.Control]
 	FixedTime   maybe.Maybe[time.Duration]
@@ -98,23 +104,6 @@ func (b *Battle) uciNewGame(ctx context.Context, e *uci.Engine) error {
 
 type Warnings []string
 
-func (b *Battle) onEngineInitFailed(c chess.Color, err error) (*GameExt, Warnings, error) {
-	warn := Warnings{
-		fmt.Sprintf("engine %q: cannot init: %v", b.pool(c).Name(), err),
-	}
-	game := b.Book.Opening()
-	game.SetOutcome(chess.MustWinOutcome(chess.VerdictEngineError, c.Inv()))
-	return &GameExt{
-		Game:        game,
-		Scores:      nil,
-		WhiteName:   b.White.Name(),
-		BlackName:   b.Black.Name(),
-		Round:       0, // Not specified.
-		TimeControl: util.CloneMaybe(b.Options.TimeControl),
-		FixedTime:   b.Options.FixedTime,
-	}, warn, nil
-}
-
 func (b *Battle) predictWin(score maybe.Maybe[uci.Score]) int {
 	if score.IsNone() || b.Options.ScoreThreshold == 0 {
 		return 0
@@ -152,7 +141,7 @@ func (b *Battle) checkResign(game *clock.Game, scores []maybe.Maybe[uci.Score]) 
 	}
 }
 
-func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
+func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, error) {
 	if b.Options.TimeControl.IsSome() && b.Options.FixedTime.IsSome() {
 		return nil, nil, fmt.Errorf("conflicting time control")
 	}
@@ -160,6 +149,24 @@ func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
 		return nil, nil, fmt.Errorf("no time control")
 	}
 	b.Options.FillDefaults()
+
+	var warn Warnings
+	opening := b.Book.Opening()
+	gameExt := &GameExt{
+		Game:        opening,
+		Scores:      make([]maybe.Maybe[uci.Score], 0, opening.Len()),
+		WhiteName:   b.White.Name(),
+		BlackName:   b.Black.Name(),
+		Round:       0, // Not specified.
+		TimeControl: util.CloneMaybe(b.Options.TimeControl),
+		FixedTime:   b.Options.FixedTime,
+	}
+	for range opening.Len() {
+		gameExt.Scores = append(gameExt.Scores, maybe.None[uci.Score]())
+	}
+	if watcher != nil {
+		watcher.OnGameInited(gameExt)
+	}
 
 	var engines [chess.ColorMax]*uci.Engine
 	defer func() {
@@ -170,28 +177,41 @@ func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
 		}
 	}()
 	for c := range chess.ColorMax {
-		e, err := b.pool(c).AcquireEngine(ctx)
-		if err != nil {
-			return b.onEngineInitFailed(c, fmt.Errorf("acquire: %w", err))
+		if err := func() error {
+			e, err := b.pool(c).AcquireEngine(ctx)
+			if err != nil {
+				return fmt.Errorf("acquire: %w", err)
+			}
+			if err := b.uciNewGame(ctx, e); err != nil {
+				e.Close()
+				return fmt.Errorf("start game: %w", err)
+			}
+			engines[c] = e
+			return nil
+		}(); err != nil {
+			warn = append(warn, fmt.Sprintf("engine %q: cannot init: %v", b.pool(c).Name(), err))
+			gameExt.Game = opening
+			gameExt.Game.SetOutcome(chess.MustWinOutcome(chess.VerdictEngineError, c.Inv()))
+			if watcher != nil {
+				clk := maybe.None[clock.Clock]()
+				if b.Options.TimeControl.IsSome() {
+					clk = maybe.Some(clock.Clock{})
+				}
+				watcher.OnGameUpdated(gameExt, clk)
+			}
+			return gameExt, warn, nil
 		}
-		if err := b.uciNewGame(ctx, e); err != nil {
-			e.Close()
-			return b.onEngineInitFailed(c, fmt.Errorf("start game: %w", err))
-		}
-		engines[c] = e
 	}
 
-	var warn Warnings
-	opening := b.Book.Opening()
-	scores := make([]maybe.Maybe[uci.Score], 0, opening.Len())
-	for range opening.Len() {
-		scores = append(scores, maybe.None[uci.Score]())
-	}
 	game := clock.NewGame(opening, b.Options.TimeControl, clock.GameOptions{
 		OutcomeFilter: b.Options.OutcomeFilter,
 	})
+	gameExt.Game = game.Inner()
 
 	for !game.IsFinished() {
+		if watcher != nil {
+			watcher.OnGameUpdated(gameExt, maybe.Pack(game.Clock()))
+		}
 		side := game.CurSide()
 		engine := engines[side]
 		var deadline time.Time
@@ -212,10 +232,16 @@ func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
 				game.UpdateTimer()
 				return fmt.Errorf("set position: %w", err)
 			}
+			var consumer uci.InfoConsumer
+			if watcher != nil {
+				consumer = func(info uci.Info) {
+					watcher.OnEngineInfo(side, info)
+				}
+			}
 			search, err := engine.Go(ctx, uci.GoOptions{
 				TimeSpec: maybe.Pack(game.UCITimeSpec()),
 				Movetime: b.Options.FixedTime,
-			}, nil)
+			}, consumer)
 			if err != nil {
 				game.UpdateTimer()
 				return fmt.Errorf("go: %w", err)
@@ -234,10 +260,10 @@ func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
 			if err := game.Push(mv); err != nil {
 				return fmt.Errorf("add move: %w", err)
 			}
-			if game.Inner().Len() != len(scores) {
-				scores = append(scores, search.Status().Score)
+			if game.Inner().Len() != len(gameExt.Scores) {
+				gameExt.Scores = append(gameExt.Scores, search.Status().Score)
 			}
-			b.checkResign(game, scores)
+			b.checkResign(game, gameExt.Scores)
 			return nil
 		}(); err != nil {
 			warn = append(warn, fmt.Sprintf("engine %q: error: %v", b.pool(side).Name(), err))
@@ -253,13 +279,8 @@ func (b *Battle) Do(ctx context.Context) (*GameExt, Warnings, error) {
 		warn = append(warn, fmt.Sprintf("engine %q: forfeits on time", name))
 	}
 
-	return &GameExt{
-		Game:        game.Inner(),
-		Scores:      scores,
-		WhiteName:   b.White.Name(),
-		BlackName:   b.Black.Name(),
-		Round:       0, // Not specified.
-		TimeControl: util.CloneMaybe(b.Options.TimeControl),
-		FixedTime:   b.Options.FixedTime,
-	}, warn, nil
+	if watcher != nil {
+		watcher.OnGameUpdated(gameExt, maybe.Pack(game.Clock()))
+	}
+	return gameExt, warn, nil
 }
