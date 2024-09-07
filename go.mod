@@ -3,7 +3,7 @@ module github.com/alex65536/day20
 go 1.22.1
 
 require (
-	github.com/alex65536/go-chess v0.9.0
+	github.com/alex65536/go-chess v0.9.1
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.8.1
