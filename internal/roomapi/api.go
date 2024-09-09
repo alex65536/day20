@@ -1,6 +1,7 @@
 package roomapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -82,3 +83,10 @@ type ByeRequest struct {
 }
 
 type ByeResponse struct{}
+
+type API interface {
+	Update(ctx context.Context, req *UpdateRequest) (*UpdateResponse, error)
+	Job(ctx context.Context, req *JobRequest) (*JobResponse, error)
+	Hello(ctx context.Context, req *HelloRequest) (*HelloResponse, error)
+	Bye(ctx context.Context, req *ByeRequest) (*ByeResponse, error)
+}

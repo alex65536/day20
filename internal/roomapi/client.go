@@ -16,20 +16,20 @@ type ClientOptions struct {
 	Token    string
 }
 
-type Client struct {
+type client struct {
 	o      ClientOptions
 	client *http.Client
 }
 
-func NewClient(o ClientOptions, client *http.Client) *Client {
-	return &Client{o: o, client: client}
+func NewClient(o ClientOptions, httpClient *http.Client) API {
+	return &client{o: o, client: httpClient}
 }
 
-func (c *Client) setUpRequest(req *http.Request) {
+func (c *client) setUpRequest(req *http.Request) {
 	req.Header.Add("Authorization", "Bearer " + c.o.Token)
 }
 
-func (c *Client) decodeError(rsp *http.Response) error {
+func (c *client) decodeError(rsp *http.Response) error {
 	if 200 <= rsp.StatusCode && rsp.StatusCode <= 299 {
 		return nil
 	}
@@ -51,7 +51,7 @@ func (c *Client) decodeError(rsp *http.Response) error {
 	return httputil.MakeHTTPError(rsp.StatusCode, b.String())
 }
 
-func doClientRequest[Req any, Rsp any](ctx context.Context, c *Client, path string, req *Req) (*Rsp, error) {
+func doClientRequest[Req any, Rsp any](ctx context.Context, c *client, path string, req *Req) (*Rsp, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal json: %w", err)
@@ -83,18 +83,18 @@ func doClientRequest[Req any, Rsp any](ctx context.Context, c *Client, path stri
 	return rsp, nil
 }
 
-func (c *Client) Update(ctx context.Context, req *UpdateRequest) (*UpdateResponse, error) {
+func (c *client) Update(ctx context.Context, req *UpdateRequest) (*UpdateResponse, error) {
 	return doClientRequest[UpdateRequest, UpdateResponse](ctx, c, "/update", req)
 }
 
-func (c *Client) Job(ctx context.Context, req *JobRequest) (*JobResponse, error) {
+func (c *client) Job(ctx context.Context, req *JobRequest) (*JobResponse, error) {
 	return doClientRequest[JobRequest, JobResponse](ctx, c, "/job", req)
 }
 
-func (c *Client) Hello(ctx context.Context, req *HelloRequest) (*HelloResponse, error) {
+func (c *client) Hello(ctx context.Context, req *HelloRequest) (*HelloResponse, error) {
 	return doClientRequest[HelloRequest, HelloResponse](ctx, c, "/hello", req)
 }
 
-func (c *Client) Bye(ctx context.Context, req *ByeRequest) (*ByeResponse, error) {
+func (c *client) Bye(ctx context.Context, req *ByeRequest) (*ByeResponse, error) {
 	return doClientRequest[ByeRequest, ByeResponse](ctx, c, "/bye", req)
 }

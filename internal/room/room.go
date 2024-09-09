@@ -46,14 +46,14 @@ func (o *Options) FillDefaults() {
 }
 
 type job struct {
-	client *roomapi.Client
+	client roomapi.API
 	o      *Options
 	desc   *roomapi.Job
 	roomID string
 	log    *slog.Logger
 }
 
-func newJob(client *roomapi.Client, o *Options, desc *roomapi.Job, roomID string, log *slog.Logger) *job {
+func newJob(client roomapi.API, o *Options, desc *roomapi.Job, roomID string, log *slog.Logger) *job {
 	return &job{
 		client: client,
 		o:      o,
@@ -274,7 +274,7 @@ func (j *job) do(ctx context.Context) error {
 }
 
 type room struct {
-	client *roomapi.Client
+	client roomapi.API
 	o      *Options
 	roomID string
 }

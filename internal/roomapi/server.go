@@ -11,16 +11,8 @@ import (
 	"strings"
 
 	httputil "github.com/alex65536/day20/internal/util/http"
-	randutil "github.com/alex65536/day20/internal/util/rand"
 	"github.com/alex65536/day20/internal/util/slogx"
 )
-
-type Server interface {
-	Update(ctx context.Context, log *slog.Logger, req *UpdateRequest) (*UpdateResponse, error)
-	Job(ctx context.Context, log *slog.Logger, req *JobRequest) (*JobResponse, error)
-	Hello(ctx context.Context, log *slog.Logger, req *HelloRequest) (*HelloResponse, error)
-	Bye(ctx context.Context, log *slog.Logger, req *ByeRequest) (*ByeResponse, error)
-}
 
 type TokenChecker func(token string) error
 
@@ -31,13 +23,16 @@ type ServerOptions struct {
 func makeHandler[Req any, Rsp any](
 	log *slog.Logger,
 	o *ServerOptions,
-	fn func(context.Context, *slog.Logger, *Req) (*Rsp, error),
+	fn func(context.Context, *Req) (*Rsp, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, hReq *http.Request) {
+		ctx, cancel := httputil.NewRequestContext(context.Background())
+		defer cancel()
+
 		log := log.With(
 			slog.String("addr", hReq.RemoteAddr),
 			slog.String("method", hReq.Method),
-			slog.String("rid", randutil.InsecureID()),
+			slog.String("rid", httputil.ExtractReqID(ctx)),
 		)
 
 		if err := func() error {
@@ -86,9 +81,6 @@ func makeHandler[Req any, Rsp any](
 				return httputil.MakeHTTPAuthError("bad auth", "Bearer")
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
 			reqBytes, err := io.ReadAll(hReq.Body)
 			if err != nil {
 				log.Info("error reading request", slogx.Err(err))
@@ -100,7 +92,7 @@ func makeHandler[Req any, Rsp any](
 				return httputil.MakeHTTPError(http.StatusBadRequest, "unmarshal json request")
 			}
 
-			rsp, err := fn(ctx, log, req)
+			rsp, err := fn(ctx, req)
 			if err != nil {
 				if apiErr := (*Error)(nil); errors.As(err, &apiErr) {
 					return err
@@ -161,17 +153,17 @@ func makeHandler[Req any, Rsp any](
 	}
 }
 
-func RegisterServer(s Server, mux *http.ServeMux, o ServerOptions, prefix string, log *slog.Logger) error {
+func RegisterServer(a API, mux *http.ServeMux, o ServerOptions, prefix string, log *slog.Logger) error {
 	if o.TokenChecker == nil {
 		return fmt.Errorf("no token checker")
 	}
 	mux.HandleFunc(prefix+"/update",
-		makeHandler(log.With(slog.String("method", "update")), &o, s.Update))
+		makeHandler(log.With(slog.String("method", "update")), &o, a.Update))
 	mux.HandleFunc(prefix+"/job",
-		makeHandler(log.With(slog.String("method", "job")), &o, s.Job))
+		makeHandler(log.With(slog.String("method", "job")), &o, a.Job))
 	mux.HandleFunc(prefix+"/hello",
-		makeHandler(log.With(slog.String("method", "hello")), &o, s.Hello))
+		makeHandler(log.With(slog.String("method", "hello")), &o, a.Hello))
 	mux.HandleFunc(prefix+"/bye",
-		makeHandler(log.With(slog.String("method", "bye")), &o, s.Bye))
+		makeHandler(log.With(slog.String("method", "bye")), &o, a.Bye))
 	return nil
 }
