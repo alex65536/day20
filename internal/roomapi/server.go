@@ -54,9 +54,36 @@ func makeHandler[Req any, Rsp any](
 				return httputil.MakeHTTPError(http.StatusExpectationFailed, "NOBODY EXPECTS THE SPANISH INQUISITION!")
 			}
 
-			if err := o.TokenChecker(hReq.Header.Get("X-Token")); err != nil {
-				log.Warn("token auth failed", slogx.Err(err))
-				return &Error{Code: ErrBadToken, Message: "bad token auth"}
+			if contentType := hReq.Header.Get("Content-Type"); contentType != "application/json" {
+				log.Warn("bad request content type", slog.String("content_type", contentType))
+				return httputil.MakeHTTPError(http.StatusUnsupportedMediaType, "bad request content type")
+			}
+
+			tokenChecked := false
+			if token, authOk := func() (string, bool) {
+				auth := hReq.Header.Get("Authorization")
+				if auth == "" {
+					log.Info("unauthorized request")
+					return "", false
+				}
+				token, ok := strings.CutPrefix(auth, "Bearer ")
+				if !ok {
+					log.Warn("bad auth token format")
+					return "", false
+				}
+				return token, true
+			}(); authOk {
+				if err := o.TokenChecker(token); err != nil {
+					log.Warn("bad token", slogx.Err(err))
+					return &Error{Code: ErrBadToken, Message: "bad token auth"}
+				}
+				tokenChecked = true
+			} else {
+				return httputil.MakeHTTPAuthError("bad auth", "Bearer")
+			}
+			if !tokenChecked {
+				// Extra safeguard to protect against auth bypass.
+				return httputil.MakeHTTPAuthError("bad auth", "Bearer")
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())

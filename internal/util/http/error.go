@@ -11,6 +11,7 @@ import (
 type HTTPError struct {
 	code    int
 	message string
+	headers map[string][]string
 }
 
 func (e *HTTPError) Error() string {
@@ -21,6 +22,14 @@ func (e *HTTPError) Code() int { return e.code }
 
 func MakeHTTPError(code int, message string) error {
 	return &HTTPError{code: code, message: message}
+}
+
+func MakeHTTPAuthError(message string, scheme string) error {
+	return &HTTPError{
+		code: http.StatusUnauthorized,
+		message: message,
+		headers: map[string][]string{"WWW-Authenticate": {scheme}},
+	}
 }
 
 func HTTPErrorFromResponse(rsp *http.Response) error {
@@ -46,6 +55,13 @@ func WriteErrorResponse(err error, w http.ResponseWriter) error {
 		message = err.Error()
 	}
 	w.Header().Set("Content-Type", "application/text")
+	if h := httpErr.headers; h != nil {
+		for k, vs := range h {
+			for _, v := range vs {
+				w.Header().Add(k, v)
+			}
+		}
+	}
 	w.WriteHeader(code)
 	if _, err := io.WriteString(w, message); err != nil {
 		return fmt.Errorf("write response: %w", err)

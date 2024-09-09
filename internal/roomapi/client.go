@@ -26,7 +26,7 @@ func NewClient(o ClientOptions, client *http.Client) *Client {
 }
 
 func (c *Client) setUpRequest(req *http.Request) {
-	req.Header.Add("X-Token", c.o.Token)
+	req.Header.Add("Authorization", "Bearer " + c.o.Token)
 }
 
 func (c *Client) decodeError(rsp *http.Response) error {
