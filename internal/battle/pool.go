@@ -3,14 +3,26 @@ package battle
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"sync"
 	"time"
 
+	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/uci"
 	"github.com/alex65536/go-chess/util/maybe"
 )
+
+type logAdapter struct {
+	log   *slog.Logger
+	level slog.Level
+}
+
+func (l *logAdapter) Printf(s string, args ...any) {
+	l.log.Log(context.Background(), l.level, fmt.Sprintf(s, args...))
+}
 
 type EnginePool interface {
 	AcquireEngine(ctx context.Context) (*uci.Engine, error)
@@ -38,9 +50,13 @@ func (o EnginePoolOptions) Clone() EnginePoolOptions {
 	return o
 }
 
-func NewEnginePool(ctx context.Context, o EnginePoolOptions) (EnginePool, error) {
+func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (EnginePool, error) {
 	o = o.Clone()
 	o.FillDefaults()
+
+	if !slogx.IsDiscard(log) {
+		log = log.With(slog.String("pool_id", randutil.InsecureID()))
+	}
 
 	poolCtx, cancel := context.WithCancel(context.Background())
 	pool := &enginePool{
@@ -48,6 +64,7 @@ func NewEnginePool(ctx context.Context, o EnginePoolOptions) (EnginePool, error)
 		ctx:    poolCtx,
 		cancel: cancel,
 		es:     nil,
+		log:    log,
 	}
 
 	e, err := pool.AcquireEngine(ctx)
@@ -72,6 +89,7 @@ type enginePool struct {
 	mu     sync.Mutex
 	es     []*uci.Engine
 	name   string
+	log    *slog.Logger
 }
 
 func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
@@ -87,12 +105,21 @@ func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
 	ctx, cancel := context.WithTimeout(ctx, p.o.CreateTimeout.Get())
 	defer cancel()
 
+	logger := uci.NewNullLogger()
+	if !slogx.IsDiscard(p.log) {
+		logger = &logAdapter{
+			log:   p.log.With(slog.String("engine_id", randutil.InsecureID())),
+			level: slog.LevelInfo,
+		}
+	}
+
 	e, err := uci.NewEasyEngine(p.ctx, uci.EasyEngineOptions{
 		Name:            p.o.Name,
 		Args:            p.o.Args,
 		SysProcAttr:     engineSysProcAttr(),
 		Options:         p.o.EngineOptions,
 		WaitInitialized: false,
+		Logger:          logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create: %w", err)

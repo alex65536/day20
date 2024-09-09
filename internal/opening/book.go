@@ -25,6 +25,7 @@ var (
 	_ Book = (*emptyBook)(nil)
 	_ Book = (*fenBook)(nil)
 	_ Book = (*pgnLineBook)(nil)
+	_ Book = (*singleBook)(nil)
 )
 
 type emptyBook struct{}
@@ -77,6 +78,18 @@ func NewFENBook(r io.Reader, source rand.Source) (Book, error) {
 		boards: boards,
 		rnd:    rand.New(randutil.NewConcurrentSource(source)),
 	}, nil
+}
+
+type singleBook struct {
+	game *chess.Game
+}
+
+func (b *singleBook) Opening() *chess.Game {
+	return b.game.Clone()
+}
+
+func NewSingleGameBook(game *chess.Game) Book {
+	return &singleBook{game: game.Clone()}
 }
 
 type pgnLineBook struct {

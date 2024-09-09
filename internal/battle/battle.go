@@ -17,7 +17,8 @@ import (
 type Watcher interface {
 	OnGameInited(game *GameExt)
 	OnGameUpdated(game *GameExt, clk maybe.Maybe[clock.Clock])
-	OnEngineInfo(color chess.Color, info uci.Info)
+	OnGameFinished(game *GameExt, warn Warnings)
+	OnEngineInfo(color chess.Color, status uci.SearchStatus)
 }
 
 type Options struct {
@@ -149,10 +150,13 @@ func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, e
 		return nil, nil, fmt.Errorf("no time control")
 	}
 	b.Options.FillDefaults()
+	gameExt, warn := b.doImpl(ctx, watcher)
+	return gameExt, warn, nil
+}
 
-	var warn Warnings
+func (b *Battle) doImpl(ctx context.Context, watcher Watcher) (gameExt *GameExt, warn Warnings) {
 	opening := b.Book.Opening()
-	gameExt := &GameExt{
+	gameExt = &GameExt{
 		Game:        opening,
 		Scores:      make([]maybe.Maybe[uci.Score], 0, opening.Len()),
 		WhiteName:   b.White.Name(),
@@ -167,6 +171,11 @@ func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, e
 	if watcher != nil {
 		watcher.OnGameInited(gameExt)
 	}
+	defer func() {
+		if watcher != nil {
+			defer watcher.OnGameFinished(gameExt, warn)
+		}
+	}()
 
 	var engines [chess.ColorMax]*uci.Engine
 	defer func() {
@@ -199,7 +208,7 @@ func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, e
 				}
 				watcher.OnGameUpdated(gameExt, clk)
 			}
-			return gameExt, warn, nil
+			return
 		}
 	}
 
@@ -233,9 +242,10 @@ func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, e
 				return fmt.Errorf("set position: %w", err)
 			}
 			var consumer uci.InfoConsumer
+			var search *uci.Search
 			if watcher != nil {
-				consumer = func(info uci.Info) {
-					watcher.OnEngineInfo(side, info)
+				consumer = func(uci.Info) {
+					watcher.OnEngineInfo(side, search.Status())
 				}
 			}
 			search, err := engine.Go(ctx, uci.GoOptions{
@@ -282,5 +292,5 @@ func (b *Battle) Do(ctx context.Context, watcher Watcher) (*GameExt, Warnings, e
 	if watcher != nil {
 		watcher.OnGameUpdated(gameExt, maybe.Pack(game.Clock()))
 	}
-	return gameExt, warn, nil
+	return
 }

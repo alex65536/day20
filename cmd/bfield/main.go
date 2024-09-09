@@ -19,6 +19,7 @@ import (
 	"github.com/alex65536/day20/internal/field"
 	"github.com/alex65536/day20/internal/opening"
 	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/util/style"
 )
 
@@ -177,12 +178,12 @@ Battlefield is a tool to run matches between chess engines.
 			sgsOut = f
 		}
 
-		first, err := battle.NewEnginePool(ctx, battle.EnginePoolOptions{Name: args[0]})
+		first, err := battle.NewEnginePool(ctx, slogx.DiscardLogger(), battle.EnginePoolOptions{Name: args[0]})
 		if err != nil {
 			return fmt.Errorf("init first engine: %w", err)
 		}
 		defer first.Close()
-		second, err := battle.NewEnginePool(ctx, battle.EnginePoolOptions{Name: args[1]})
+		second, err := battle.NewEnginePool(ctx, slogx.DiscardLogger(), battle.EnginePoolOptions{Name: args[1]})
 		if err != nil {
 			return fmt.Errorf("init second engine: %w", err)
 		}
