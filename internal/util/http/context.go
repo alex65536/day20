@@ -24,4 +24,3 @@ func ExtractReqID(ctx context.Context) string {
 	}
 	return ""
 }
-

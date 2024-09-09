@@ -26,7 +26,7 @@ func MakeHTTPError(code int, message string) error {
 
 func MakeHTTPAuthError(message string, scheme string) error {
 	return &HTTPError{
-		code: http.StatusUnauthorized,
+		code:    http.StatusUnauthorized,
 		message: message,
 		headers: map[string][]string{"WWW-Authenticate": {scheme}},
 	}
