@@ -27,6 +27,19 @@ const (
 	JobAborted
 )
 
+func (s JobStatus) String() string {
+	switch s {
+	case JobRunning:
+		return "running"
+	case JobSucceeded:
+		return "success"
+	case JobAborted:
+		return "abort"
+	default:
+		return "unknown"
+	}
+}
+
 type RoomDesc struct {
 	RoomID string
 	Job    *Job

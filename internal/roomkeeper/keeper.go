@@ -53,13 +53,14 @@ type Keeper struct {
 
 var _ roomapi.API = (*Keeper)(nil)
 
-func NewRoomKeeper(
+func New(
 	log *slog.Logger,
 	db DB,
 	sched Scheduler,
 	opts Options,
 	rooms []RoomDesc,
 ) *Keeper {
+	opts.FillDefaults()
 	gctx, cancel := context.WithCancel(context.Background())
 	k := &Keeper{
 		db:     db,
@@ -380,19 +381,19 @@ func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok
 	return ch, cancel, true
 }
 
-func (k *Keeper) RoomState(roomID string, cursor delta.Cursor) (*delta.State, error) {
+func (k *Keeper) RoomStateDelta(roomID string, old delta.Cursor) (*delta.State, delta.Cursor, error) {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	room, ok := k.rooms[roomID]
 	if !ok {
-		return nil, &roomapi.Error{
+		return nil, delta.Cursor{}, &roomapi.Error{
 			Code:    roomapi.ErrNoSuchRoom,
 			Message: "no such room",
 		}
 	}
-	delta, err := room.room.State(cursor)
+	d, cursor, err := room.room.StateDelta(old)
 	if err != nil {
-		return nil, fmt.Errorf("room state: %w", err)
+		return nil, delta.Cursor{}, fmt.Errorf("room state: %w", err)
 	}
-	return delta, nil
+	return d, cursor, nil
 }

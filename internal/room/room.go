@@ -44,6 +44,17 @@ func (o *Options) FillDefaults() {
 	}
 }
 
+func requestWithTimeout[Req, Rsp any](
+	ctx context.Context,
+	timeout time.Duration,
+	method func(context.Context, *Req) (*Rsp, error),
+	req *Req,
+) (*Rsp, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return method(ctx, req)
+}
+
 func retryBackoff(ctx context.Context, b *backoff.Backoff, err error) error {
 	select {
 	case <-ctx.Done():
@@ -80,7 +91,7 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 		return fmt.Errorf("create backoff: %w", err)
 	}
 	for {
-		_, err := j.client.Update(ctx, upd)
+		_, err := requestWithTimeout(ctx, j.o.RequestTimeout, j.client.Update, upd)
 		if err != nil {
 			j.log.Warn("error sending update", slogx.Err(err))
 			if err := retryBackoff(ctx, backoff, err); err != nil {
@@ -110,6 +121,11 @@ func (j *job) makePoolOptions(e roomapi.JobEngine) battle.EnginePoolOptions {
 		EngineOptions: j.o.EngineOptions.Clone(),
 		CreateTimeout: j.o.EngineCreateTimeout,
 	}
+}
+
+func (j *job) closeBattle(battle *battle.Battle) {
+	battle.White.Close()
+	battle.Black.Close()
 }
 
 func (j *job) makeBattle(ctx context.Context) (*battle.Battle, error) {
@@ -174,16 +190,18 @@ func (j *job) makeBattle(ctx context.Context) (*battle.Battle, error) {
 	return b, nil
 }
 
-func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-chan struct{}) <-chan error {
+func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-chan struct{}, onFinish func()) <-chan error {
 	updateCh := make(chan error, 1)
 	go func() {
+		defer onFinish()
+
 		updateCh <- func() error {
 			cursor := delta.Cursor{}
 
 			doSend := func(done bool) error {
 				var emptyCursor delta.Cursor
 				for {
-					delta, newCursor, err := watcher.State(cursor)
+					delta, newCursor, err := watcher.StateDelta(cursor)
 					if err != nil {
 						panic(fmt.Sprintf("must not happen: %v", err))
 					}
@@ -238,13 +256,16 @@ func (j *job) do(ctx context.Context) error {
 		}
 		return nil
 	}
+	defer j.closeBattle(battle)
 
 	watcher, upd := delta.NewWatcher(j.o.Watcher)
 	defer watcher.Close()
 
-	updateCh := j.watchUpdates(ctx, watcher, upd)
+	battleCtx, battleCancel := context.WithCancel(ctx)
+	defer battleCancel()
+	updateCh := j.watchUpdates(ctx, watcher, upd, battleCancel)
 
-	game, warn, err := battle.Do(ctx, watcher)
+	game, warn, err := battle.Do(battleCtx, watcher)
 	watcher.Close()
 	if err != nil {
 		<-updateCh
@@ -262,10 +283,7 @@ func (j *job) do(ctx context.Context) error {
 
 	{
 		// Validation.
-		allState, _, err := watcher.State(delta.Cursor{})
-		if err != nil {
-			panic(fmt.Sprintf("cannot get state: %v", err))
-		}
+		allState := watcher.State()
 		gameFromState, err := allState.GameExt()
 		if err != nil {
 			panic(fmt.Sprintf("state contains corrupted game: %v", err))
@@ -301,12 +319,15 @@ func (r *room) do(ctx context.Context, log *slog.Logger) error {
 	}
 	for {
 		rsp, err := func() (*roomapi.JobResponse, error) {
-			subctx, cancel := context.WithTimeout(ctx, r.o.JobPollDuration+r.o.RequestTimeout)
-			defer cancel()
-			rsp, err := r.client.Job(subctx, &roomapi.JobRequest{
-				RoomID:  r.roomID,
-				Timeout: r.o.JobPollDuration,
-			})
+			rsp, err := requestWithTimeout(
+				ctx,
+				r.o.JobPollDuration+r.o.RequestTimeout,
+				r.client.Job,
+				&roomapi.JobRequest{
+					RoomID:  r.roomID,
+					Timeout: r.o.JobPollDuration,
+				},
+			)
 			if err != nil {
 				return nil, fmt.Errorf("job: %w", err)
 			}
@@ -355,15 +376,20 @@ func (r *room) bye(log *slog.Logger) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), r.o.ByeTimeout)
-	defer cancel()
 	log.Info("leaving room")
-	if _, err := r.client.Bye(ctx, &roomapi.ByeRequest{RoomID: r.roomID}); err != nil {
+	if _, err := requestWithTimeout(
+		context.Background(),
+		r.o.ByeTimeout,
+		r.client.Bye,
+		&roomapi.ByeRequest{RoomID: r.roomID},
+	); err != nil {
 		log.Warn("error saying bye", slogx.Err(err))
 	}
 }
 
 func Loop(ctx context.Context, log *slog.Logger, o Options) error {
+	o.FillDefaults()
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -379,9 +405,14 @@ func Loop(ctx context.Context, log *slog.Logger, o Options) error {
 			return ctx.Err()
 		default:
 		}
-		rsp, err := client.Hello(ctx, &roomapi.HelloRequest{
-			SupportedProtoVersions: []int{roomapi.ProtoVersion},
-		})
+		rsp, err := requestWithTimeout(
+			ctx,
+			o.RequestTimeout,
+			client.Hello,
+			&roomapi.HelloRequest{
+				SupportedProtoVersions: []int{roomapi.ProtoVersion},
+			},
+		)
 		if err != nil {
 			log.Warn("error saying hello", slogx.Err(err))
 			if err := retryBackoff(ctx, backoff, err); err != nil {

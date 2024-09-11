@@ -87,7 +87,7 @@ func makeHandler[Req any, Rsp any](
 				return nil
 			}
 			var req *Req
-			if err := json.Unmarshal(reqBytes, req); err != nil {
+			if err := json.Unmarshal(reqBytes, &req); err != nil {
 				log.Warn("error unmarshalling json", slogx.Err(err))
 				return httputil.MakeHTTPError(http.StatusBadRequest, "unmarshal json request")
 			}

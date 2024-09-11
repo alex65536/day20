@@ -33,6 +33,7 @@ func (o *WatcherOptions) FillDefaults() {
 var _ battle.Watcher = (*Watcher)(nil)
 
 func NewWatcher(o WatcherOptions) (*Watcher, <-chan struct{}) {
+	o.FillDefaults()
 	notifyCh := make(chan struct{}, 1)
 	w := &Watcher{
 		state:    NewState(),
@@ -151,6 +152,8 @@ func (w *Watcher) OnGameFinished(game *battle.GameExt, warn battle.Warnings) {
 }
 
 func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
+	now := time.Now()
+
 	cursor := w.startTx()
 	defer w.endTx(cursor)
 
@@ -159,6 +162,9 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 		pl = w.state.White
 	} else {
 		pl = w.state.Black
+	}
+	if !pl.Active {
+		panic("must not happen")
 	}
 
 	if status.Score != pl.Score ||
@@ -171,6 +177,11 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 		pl.Depth = status.Depth
 		pl.Nodes = status.Nodes
 		pl.NPS = status.NPS
+		if pl.Clock.IsSome() {
+			delta := now.Sub(pl.ClockUpdateTime)
+			pl.Clock = maybe.Some(pl.Clock.Get() - delta)
+			pl.ClockUpdateTime = now
+		}
 		pl.Version++
 	}
 }
@@ -196,7 +207,7 @@ func (w *Watcher) OnGameUpdated(game *battle.GameExt, clk maybe.Maybe[clock.Cloc
 	}
 }
 
-func (w *Watcher) State(old Cursor) (*State, Cursor, error) {
+func (w *Watcher) StateDelta(old Cursor) (*State, Cursor, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	d, err := w.state.Delta(old)
@@ -206,18 +217,24 @@ func (w *Watcher) State(old Cursor) (*State, Cursor, error) {
 	return d, w.state.Cursor(), nil
 }
 
+func (w *Watcher) State() *State {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.state.Clone()
+}
+
 func (w *Watcher) UpdateTimer() {
 	now := time.Now()
 
 	cursor := w.startTx()
 	defer w.endTx(cursor)
 
-	for _, p := range []*Player{w.state.White, w.state.Black} {
-		if p.Active && p.Clock.IsSome() {
-			delta := now.Sub(p.ClockUpdateTime)
-			p.Clock = maybe.Some(p.Clock.Get() - delta)
-			p.ClockUpdateTime = now
-			p.Version++
+	for _, pl := range []*Player{w.state.White, w.state.Black} {
+		if pl.Active && pl.Clock.IsSome() {
+			delta := now.Sub(pl.ClockUpdateTime)
+			pl.Clock = maybe.Some(pl.Clock.Get() - delta)
+			pl.ClockUpdateTime = now
+			pl.Version++
 		}
 	}
 }

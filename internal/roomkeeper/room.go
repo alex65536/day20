@@ -85,20 +85,20 @@ func (r *room) SetJob(job *Job) {
 	}
 }
 
-func (r *room) State(old delta.Cursor) (*delta.State, error) {
+func (r *room) StateDelta(old delta.Cursor) (*delta.State, delta.Cursor, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.desc.Job == nil {
-		return nil, &roomapi.Error{
+		return nil, delta.Cursor{}, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "no job running",
 		}
 	}
-	delta, err := r.state.Delta(old)
+	d, err := r.state.Delta(old)
 	if err != nil {
-		return nil, fmt.Errorf("compute delta: %w", err)
+		return nil, delta.Cursor{}, fmt.Errorf("compute delta: %w", err)
 	}
-	return delta, nil
+	return d, r.state.Cursor(), nil
 }
 
 func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, error) {
