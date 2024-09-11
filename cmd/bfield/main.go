@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"runtime"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/alex65536/day20/internal/field"
 	"github.com/alex65536/day20/internal/opening"
 	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/signal"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/util/style"
 )
@@ -54,21 +54,8 @@ Battlefield is a tool to run matches between chess engines.
 `,
 	Version: "0.9.15-beta",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, os.Interrupt)
-		defer signal.Stop(sig)
-
-		go func() {
-			select {
-			case <-sig:
-				cancel()
-			case <-ctx.Done():
-			}
-			<-sig
-			os.Exit(1)
-		}()
 
 		if len(args) != 2 {
 			return fmt.Errorf("engine names required")
