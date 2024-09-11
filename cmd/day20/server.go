@@ -22,15 +22,15 @@ import (
 )
 
 var serverCmd = &cobra.Command{
-	Use: "server",
-	Args: cobra.ExactArgs(0),
+	Use:   "server",
+	Args:  cobra.ExactArgs(0),
 	Short: "Start day20 server",
 }
 
-type db struct {}
+type db struct{}
 
 func (db) UpdateRoom(context.Context, roomkeeper.RoomDesc) error { return nil }
-func (db) DeleteRoom(context.Context, string) error { return nil }
+func (db) DeleteRoom(context.Context, string) error              { return nil }
 func (db) AddGame(_ context.Context, _ string, game *battle.GameExt) error {
 	pgn, err := game.PGN()
 	if err != nil {
@@ -53,7 +53,7 @@ var globalControl clock.Control
 
 func (scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 	return &roomkeeper.Job{
-		JobID: randutil.InsecureID(),
+		JobID:     randutil.InsecureID(),
 		ContestID: "contest0",
 		Desc: roomapi.Job{
 			TimeControl: &globalControl,
@@ -107,8 +107,8 @@ func init() {
 		servDone := make(chan struct{})
 		servCtx, servCancel := context.WithCancel(ctx)
 		server := &http.Server{
-			Addr: *endpoint,
-			Handler: mux,
+			Addr:        *endpoint,
+			Handler:     mux,
 			BaseContext: func(net.Listener) context.Context { return servCtx },
 		}
 		go func() {
@@ -129,7 +129,7 @@ func init() {
 				select {
 				case <-ctx.Done():
 					return nil
-				case <-time.After(100*time.Millisecond):
+				case <-time.After(100 * time.Millisecond):
 					continue
 				}
 			}
@@ -139,7 +139,7 @@ func init() {
 				select {
 				case <-ctx.Done():
 					return nil
-				case <-time.After(100*time.Millisecond):
+				case <-time.After(100 * time.Millisecond):
 					continue
 				}
 			}

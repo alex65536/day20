@@ -8,8 +8,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Version: "indev",
-	Use:   "day20",
-	Short: "Runs and displays confrontations between chess engines",
+	Use:     "day20",
+	Short:   "Runs and displays confrontations between chess engines",
 }
 
 func main() {

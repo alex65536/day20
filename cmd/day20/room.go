@@ -17,8 +17,8 @@ import (
 )
 
 var roomCmd = &cobra.Command{
-	Use: "room",
-	Args: cobra.ExactArgs(0),
+	Use:   "room",
+	Args:  cobra.ExactArgs(0),
 	Short: "Start day20 room client",
 }
 
@@ -64,7 +64,7 @@ func init() {
 				return room.Loop(gctx, log, room.Options{
 					Client: roomapi.ClientOptions{
 						Endpoint: *endpoint,
-						Token: token,
+						Token:    token,
 					},
 				})
 			})
