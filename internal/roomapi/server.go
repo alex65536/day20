@@ -126,8 +126,14 @@ func makeHandler[Req any, Rsp any](
 					code = http.StatusGone
 				case ErrBadToken:
 					code = http.StatusForbidden
-				case ErrJobCanceled:
+				case ErrNoJobRunning:
 					code = http.StatusNotFound
+				case ErrIncompatibleProto:
+					code = http.StatusBadRequest
+				case ErrBadRequest:
+					code = http.StatusBadRequest
+				case ErrLocked:
+					code = http.StatusConflict
 				default:
 					code = http.StatusBadRequest
 				}

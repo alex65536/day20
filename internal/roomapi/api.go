@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/alex65536/day20/internal/delta"
+	"github.com/alex65536/day20/internal/util"
+	httputil "github.com/alex65536/day20/internal/util/http"
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/clock"
 )
+
+const ProtoVersion = 1
 
 type ErrorCode int
 
@@ -18,13 +23,26 @@ const (
 	ErrNeedsResync
 	ErrNoSuchRoom
 	ErrNoJob
-	ErrJobCanceled
+	ErrNoJobRunning
 	ErrBadToken
+	ErrBadRequest
+	ErrIncompatibleProto
+	ErrLocked
 )
 
 func MatchesError(err error, code ErrorCode) bool {
 	var apiErr *Error
 	return errors.As(err, &apiErr) && apiErr.Code == code
+}
+
+func IsErrorRetriable(err error) bool {
+	if apiErr := (*Error)(nil); errors.As(err, &apiErr) {
+		return apiErr.Code == ErrLocked
+	}
+	if httpErr := (*httputil.HTTPError)(nil); errors.As(err, &httpErr) {
+		return false
+	}
+	return true
 }
 
 type Error struct {
@@ -52,6 +70,10 @@ type JobEngine struct {
 	Name string `json:"name"`
 }
 
+func (e JobEngine) Clone() JobEngine {
+	return e
+}
+
 type Job struct {
 	FixedTime      *time.Duration  `json:"fixed_time,omitempty"`
 	TimeControl    *clock.Control  `json:"time_control,omitempty"`
@@ -63,6 +85,33 @@ type Job struct {
 	Black          JobEngine       `json:"black"`
 }
 
+func cloneTrivial[T any](a *T) *T {
+	if a == nil {
+		return nil
+	}
+	b := *a
+	return &b
+}
+
+func clone[T util.Clonable[T]](a *T) *T {
+	if a == nil {
+		return nil
+	}
+	b := (*a).Clone()
+	return &b
+}
+
+func (j Job) Clone() Job {
+	j.FixedTime = cloneTrivial(j.FixedTime)
+	j.TimeControl = clone(j.TimeControl)
+	j.StartBoard = cloneTrivial(j.StartBoard)
+	j.StartMoves = slices.Clone(j.StartMoves)
+	j.TimeMargin = cloneTrivial(j.TimeMargin)
+	j.White = j.White.Clone()
+	j.Black = j.Black.Clone()
+	return j
+}
+
 type JobRequest struct {
 	RoomID  string        `json:"room_id"`
 	Timeout time.Duration `json:"timeout"`
@@ -72,10 +121,13 @@ type JobResponse struct {
 	Job Job `json:"job"`
 }
 
-type HelloRequest struct{}
+type HelloRequest struct {
+	SupportedProtoVersions []int `json:"supported_proto_versions"`
+}
 
 type HelloResponse struct {
-	RoomID string `json:"room_id"`
+	RoomID       string `json:"room_id"`
+	ProtoVersion int    `json:"proto_version"`
 }
 
 type ByeRequest struct {

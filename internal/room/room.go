@@ -2,7 +2,6 @@ package room
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -45,6 +44,18 @@ func (o *Options) FillDefaults() {
 	}
 }
 
+func retryBackoff(ctx context.Context, b *backoff.Backoff, err error) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if !roomapi.IsErrorRetriable(err) {
+		return err
+	}
+	return b.Retry(ctx, err)
+}
+
 type job struct {
 	client roomapi.API
 	o      *Options
@@ -71,11 +82,8 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 	for {
 		_, err := j.client.Update(ctx, upd)
 		if err != nil {
-			if apiErr := (*roomapi.Error)(nil); errors.As(err, &apiErr) {
-				return fmt.Errorf("update job: %w", err)
-			}
 			j.log.Warn("error sending update", slogx.Err(err))
-			if err := backoff.Retry(ctx, err); err != nil {
+			if err := retryBackoff(ctx, backoff, err); err != nil {
 				return fmt.Errorf("update job: %w", err)
 			}
 			continue
@@ -305,21 +313,16 @@ func (r *room) do(ctx context.Context, log *slog.Logger) error {
 			return rsp, nil
 		}()
 		if err != nil {
-			if apiErr := (*roomapi.Error)(nil); errors.As(err, &apiErr) {
-				switch apiErr.Code {
-				case roomapi.ErrNoSuchRoom:
-					r.roomID = ""
-					log.Warn("room expired")
-					return nil
-				case roomapi.ErrNoJob:
-					continue
-				default:
-					log.Warn("error waiting for job", slogx.Err(err))
-					return fmt.Errorf("waiting for job: %w", err)
-				}
+			if roomapi.MatchesError(err, roomapi.ErrNoSuchRoom) {
+				r.roomID = ""
+				log.Warn("room expired")
+				return nil
+			}
+			if roomapi.MatchesError(err, roomapi.ErrNoJob) {
+				continue
 			}
 			log.Warn("error waiting for job", slogx.Err(err))
-			if err := backoff.Retry(ctx, err); err != nil {
+			if err := retryBackoff(ctx, backoff, err); err != nil {
 				return fmt.Errorf("wait for job: %w", err)
 			}
 			continue
@@ -338,7 +341,7 @@ func (r *room) do(ctx context.Context, log *slog.Logger) error {
 				log.Warn("room expired")
 				return nil
 			}
-			if roomapi.MatchesError(err, roomapi.ErrJobCanceled) {
+			if roomapi.MatchesError(err, roomapi.ErrNoJobRunning) {
 				continue
 			}
 			log.Warn("error running job", slogx.Err(err))
@@ -376,13 +379,18 @@ func Loop(ctx context.Context, log *slog.Logger, o Options) error {
 			return ctx.Err()
 		default:
 		}
-		rsp, err := client.Hello(ctx, &roomapi.HelloRequest{})
+		rsp, err := client.Hello(ctx, &roomapi.HelloRequest{
+			SupportedProtoVersions: []int{roomapi.ProtoVersion},
+		})
 		if err != nil {
 			log.Warn("error saying hello", slogx.Err(err))
-			if err := backoff.Retry(ctx, err); err != nil {
+			if err := retryBackoff(ctx, backoff, err); err != nil {
 				return fmt.Errorf("saying hello: %w", err)
 			}
 			continue
+		}
+		if rsp.ProtoVersion != roomapi.ProtoVersion {
+			return fmt.Errorf("unsupported proto version")
 		}
 		r := &room{
 			client: client,
