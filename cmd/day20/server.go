@@ -95,16 +95,18 @@ func init() {
 
 		keeper := roomkeeper.New(log, db{}, scheduler{log: log}, roomkeeper.Options{}, nil)
 		mux := http.NewServeMux()
-		roomapi.RegisterServer(keeper, mux, roomapi.ServerOptions{
+		if err := roomapi.RegisterServer(keeper, mux, roomapi.ServerOptions{
 			TokenChecker: func(token string) error {
 				if token != "test" {
 					return fmt.Errorf("bad token")
 				}
 				return nil
 			},
-		}, "", log)
+		}, "", log); err != nil {
+			return fmt.Errorf("register server: %w", err)
+		}
 
-		servDone := make(chan struct{})
+		servFin := make(chan struct{})
 		servCtx, servCancel := context.WithCancel(ctx)
 		server := &http.Server{
 			Addr:        *endpoint,
@@ -112,11 +114,17 @@ func init() {
 			BaseContext: func(net.Listener) context.Context { return servCtx },
 		}
 		go func() {
-			defer close(servDone)
+			defer close(servFin)
 			log.Info("starting http server")
-			server.ListenAndServe()
+			if err := server.ListenAndServe(); err != nil {
+				select {
+				case <-servCtx.Done():
+				default:
+					log.Warn("listen http server failed", slogx.Err(err))
+				}
+			}
 		}()
-		defer func() { <-servDone }()
+		defer func() { <-servFin }()
 		defer func() {
 			log.Info("stopping server")
 			servCancel()
