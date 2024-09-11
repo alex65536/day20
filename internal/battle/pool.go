@@ -77,6 +77,7 @@ func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (
 		panic("must not happen")
 	}
 	pool.name = fmt.Sprintf("%v at %v", info.Name, o.Name)
+	pool.ReleaseEngine(e)
 
 	return pool, err
 
