@@ -68,7 +68,11 @@ func (scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 }
 
 func (s scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus) {
-	s.log.Info("job finished", slog.String("job_id", jobID), slog.String("status", status.String()))
+	s.log.Info("job finished",
+		slog.String("job_id", jobID),
+		slog.String("status", status.Kind.String()),
+		slog.String("reason", status.Reason),
+	)
 }
 
 func init() {

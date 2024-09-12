@@ -122,7 +122,7 @@ func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
 	if curJob := r.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.JobID, JobAborted)
+		k.sched.OnJobFinished(curJob.JobID, NewStatusAborted("room stopped"))
 	}
 	r.room.Stop()
 	if err := k.db.DeleteRoom(ctx, roomID); err != nil {
@@ -202,7 +202,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	status, state, updErr := func() (JobStatus, *delta.State, error) {
 		if !k.sched.IsContestRunning(job.ContestID) {
 			room.room.SetJob(nil)
-			return JobAborted, nil, &roomapi.Error{
+			return NewStatusAborted("contest canceled"), nil, &roomapi.Error{
 				Code:    roomapi.ErrNoJobRunning,
 				Message: "job has just been canceled",
 			}
@@ -212,11 +212,11 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 
 	mustAbort := false
 	defer func() {
-		if status == JobRunning {
+		if status.Kind == JobRunning {
 			return
 		}
 		if mustAbort {
-			status = JobAborted
+			status = NewStatusAborted("failed to finish job properly")
 		}
 		k.sched.OnJobFinished(job.JobID, status)
 	}()
@@ -227,7 +227,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 		return nil, fmt.Errorf("update room in db: %w", err)
 	}
 
-	if status == JobSucceeded {
+	if status.Kind == JobSucceeded {
 		if updErr != nil {
 			panic(fmt.Sprintf("must not happen: %v", err))
 		}
@@ -296,7 +296,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 	}
 
 	if curJob := room.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.JobID, JobAborted)
+		k.sched.OnJobFinished(curJob.JobID, NewStatusAborted("job lost by room"))
 	}
 	room.room.SetJob(job)
 

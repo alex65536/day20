@@ -19,16 +19,16 @@ func (j Job) Clone() Job {
 	return j
 }
 
-type JobStatus int
+type JobStatusKind int
 
 const (
-	JobRunning JobStatus = iota
+	JobRunning JobStatusKind = iota
 	JobSucceeded
 	JobAborted
 )
 
-func (s JobStatus) String() string {
-	switch s {
+func (k JobStatusKind) String() string {
+	switch k {
 	case JobRunning:
 		return "running"
 	case JobSucceeded:
@@ -37,6 +37,20 @@ func (s JobStatus) String() string {
 		return "abort"
 	default:
 		return "unknown"
+	}
+}
+
+type JobStatus struct {
+	Kind   JobStatusKind
+	Reason string
+}
+
+func NewStatusRunning() JobStatus { return JobStatus{Kind: JobRunning} }
+func NewStatusSucceeded() JobStatus { return JobStatus{Kind: JobSucceeded} }
+func NewStatusAborted(reason string) JobStatus {
+	return JobStatus{
+		Kind: JobAborted,
+		Reason: reason,
 	}
 }
 

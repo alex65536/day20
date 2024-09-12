@@ -107,15 +107,15 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 	defer r.mu.Unlock()
 
 	if r.desc.Job == nil {
-		return JobAborted, nil, &roomapi.Error{
+		return NewStatusAborted("no job running"), nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "no job running",
 		}
 	}
 
-	status := JobRunning
+	status := NewStatusRunning()
 	defer func() {
-		if status != JobRunning {
+		if status.Kind != JobRunning {
 			r.desc.Job = nil
 			r.state = nil
 		}
@@ -123,9 +123,9 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 
 	if req.Done {
 		if req.Error == "" {
-			status = JobSucceeded
+			status = NewStatusSucceeded()
 		} else {
-			status = JobAborted
+			status = NewStatusAborted(fmt.Sprintf("error: %v", req.Error))
 		}
 	}
 
@@ -134,7 +134,7 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 			if req.From == (delta.Cursor{}) {
 				r.state = delta.NewState()
 			} else {
-				status = JobRunning
+				status = NewStatusRunning()
 				return status, nil, &roomapi.Error{
 					Code:    roomapi.ErrNeedsResync,
 					Message: "state cursor mismatch",
@@ -142,12 +142,12 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 			}
 		}
 		if err := r.state.ApplyDelta(req.Delta); err != nil {
-			status = JobAborted
+			status = NewStatusAborted("malformed state delta")
 			return status, nil, fmt.Errorf("apply delta: %w", err)
 		}
 	}
 
-	if status == JobSucceeded {
+	if status.Kind == JobSucceeded {
 		return status, r.state, nil
 	}
 	return status, nil, nil
