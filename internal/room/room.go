@@ -294,7 +294,14 @@ func (j *job) do(ctx context.Context) error {
 
 	{
 		// Validation.
-		allState := watcher.State()
+		stateDelta, _, err := watcher.StateDelta(delta.Cursor{})
+		if err != nil {
+			panic(fmt.Sprintf("watcher state delta: %v", err))
+		}
+		allState := delta.NewState()
+		if err := allState.ApplyDelta(stateDelta); err != nil {
+			panic(fmt.Sprintf("apply state delta: %v", err))
+		}
 		gameFromState, err := allState.GameExt()
 		if err != nil {
 			panic(fmt.Sprintf("state contains corrupted game: %v", err))

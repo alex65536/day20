@@ -212,29 +212,6 @@ func (s *State) Cursor() Cursor {
 	}
 }
 
-func (s *State) Clone() *State {
-	res := &State{}
-	if s.Info != nil {
-		res.Info = s.Info.Clone()
-	}
-	if s.Warnings != nil {
-		res.Warnings = s.Warnings.Clone()
-	}
-	if s.Position != nil {
-		res.Position = s.Position.Clone()
-	}
-	if s.Moves != nil {
-		res.Moves = s.Moves.Clone()
-	}
-	if s.White != nil {
-		res.White = s.White.Clone()
-	}
-	if s.Black != nil {
-		res.Black = s.Black.Clone()
-	}
-	return res
-}
-
 func (s *State) Delta(old Cursor) (*State, error) {
 	if !old.StrictLessEq(s.Cursor()) {
 		return nil, fmt.Errorf("old cursor is not a parent of the current one")

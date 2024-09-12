@@ -202,9 +202,3 @@ func (w *Watcher) StateDelta(old Cursor) (*State, Cursor, error) {
 	}
 	return d, w.state.Cursor(), nil
 }
-
-func (w *Watcher) State() *State {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	return w.state.Clone()
-}
