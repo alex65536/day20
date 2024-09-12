@@ -43,12 +43,6 @@ func makeHandler[Req any, Rsp any](
 				return httputil.MakeHTTPError(http.StatusMethodNotAllowed, "method not allowed")
 			}
 
-			// TODO test it!
-			if strings.ToLower(hReq.Header.Get("Expect")) == "spanish inquisition" {
-				log.Info("nobody expects the spanish inquisition")
-				return httputil.MakeHTTPError(http.StatusExpectationFailed, "NOBODY EXPECTS THE SPANISH INQUISITION!")
-			}
-
 			if contentType := hReq.Header.Get("Content-Type"); contentType != "application/json" {
 				log.Warn("bad request content type", slog.String("content_type", contentType))
 				return httputil.MakeHTTPError(http.StatusUnsupportedMediaType, "bad request content type")
