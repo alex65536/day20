@@ -173,6 +173,14 @@ func (k *Keeper) getAndAcquireRoom(roomID string) (*roomExt, error) {
 func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*roomapi.UpdateResponse, error) {
 	log := k.logFromCtx(ctx).With(slog.String("room_id", req.RoomID))
 
+	if req.Delta != nil {
+		req.Delta.FixTimestamps(delta.TimestampDiff{
+			TheirNow: req.Timestamp,
+			OurNow:   delta.NowTimestamp(),
+		})
+		// Do not re-assign req.Timestamp = delta.NowTimestamp() to simplify double fix detection.
+	}
+
 	room, err := k.getAndAcquireRoom(req.RoomID)
 	if err != nil {
 		return nil, err

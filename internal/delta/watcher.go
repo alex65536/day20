@@ -40,19 +40,6 @@ func NewWatcher(o WatcherOptions) (*Watcher, <-chan struct{}) {
 		notifyCh: notifyCh,
 		done:     make(chan struct{}, 1),
 	}
-	go func() {
-		t := time.NewTicker(o.ClockUpdateInterval)
-		defer t.Stop()
-	loop:
-		for {
-			select {
-			case <-t.C:
-				w.UpdateTimer()
-			case <-w.done:
-				break loop
-			}
-		}
-	}()
 	return w, notifyCh
 }
 
@@ -152,8 +139,6 @@ func (w *Watcher) OnGameFinished(game *battle.GameExt, warn battle.Warnings) {
 }
 
 func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
-	now := time.Now()
-
 	cursor := w.startTx()
 	defer w.endTx(cursor)
 
@@ -177,17 +162,18 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 		pl.Depth = status.Depth
 		pl.Nodes = status.Nodes
 		pl.NPS = status.NPS
-		if pl.Clock.IsSome() {
-			delta := now.Sub(pl.ClockUpdateTime)
-			pl.Clock = maybe.Some(pl.Clock.Get() - delta)
-			pl.ClockUpdateTime = now
-		}
 		pl.Version++
 	}
 }
 
 func (w *Watcher) OnGameUpdated(game *battle.GameExt, clk maybe.Maybe[clock.Clock]) {
-	now := time.Now()
+	nowTs := NowTimestamp()
+	makeDeadline := func(ticking bool, d time.Duration) maybe.Maybe[Timestamp] {
+		if ticking {
+			return maybe.Some(nowTs.Add(d))
+		}
+		return maybe.None[Timestamp]()
+	}
 
 	cursor := w.startTx()
 	defer w.endTx(cursor)
@@ -197,12 +183,12 @@ func (w *Watcher) OnGameUpdated(game *battle.GameExt, clk maybe.Maybe[clock.Cloc
 	if c, ok := clk.TryGet(); ok {
 		w.state.White.Clock = maybe.Some(c.White)
 		w.state.White.Active = c.WhiteTicking
-		w.state.White.ClockUpdateTime = now
+		w.state.White.Deadline = makeDeadline(c.WhiteTicking, c.White)
 		w.state.White.Version++
 
 		w.state.Black.Clock = maybe.Some(c.Black)
 		w.state.Black.Active = c.BlackTicking
-		w.state.Black.ClockUpdateTime = now
+		w.state.Black.Deadline = makeDeadline(c.BlackTicking, c.Black)
 		w.state.Black.Version++
 	}
 }
@@ -221,20 +207,4 @@ func (w *Watcher) State() *State {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.state.Clone()
-}
-
-func (w *Watcher) UpdateTimer() {
-	now := time.Now()
-
-	cursor := w.startTx()
-	defer w.endTx(cursor)
-
-	for _, pl := range []*Player{w.state.White, w.state.Black} {
-		if pl.Active && pl.Clock.IsSome() {
-			delta := now.Sub(pl.ClockUpdateTime)
-			pl.Clock = maybe.Some(pl.Clock.Get() - delta)
-			pl.ClockUpdateTime = now
-			pl.Version++
-		}
-	}
 }

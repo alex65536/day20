@@ -30,6 +30,7 @@ type Options struct {
 	Watcher             delta.WatcherOptions
 	EngineOptions       uci.EngineOptions
 	EngineCreateTimeout maybe.Maybe[time.Duration]
+	PingInterval        time.Duration
 }
 
 func (o *Options) FillDefaults() {
@@ -41,6 +42,9 @@ func (o *Options) FillDefaults() {
 	}
 	if o.RequestTimeout <= 0 {
 		o.RequestTimeout = 10 * time.Second
+	}
+	if o.PingInterval == 0 {
+		o.PingInterval = 3 * time.Second
 	}
 }
 
@@ -201,15 +205,16 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 			doSend := func(done bool) error {
 				var emptyCursor delta.Cursor
 				for {
-					delta, newCursor, err := watcher.StateDelta(cursor)
+					dd, newCursor, err := watcher.StateDelta(cursor)
 					if err != nil {
 						panic(fmt.Sprintf("must not happen: %v", err))
 					}
 					if err := j.update(ctx, &roomapi.UpdateRequest{
-						RoomID: j.roomID,
-						From:   cursor,
-						Delta:  delta,
-						Done:   done,
+						RoomID:    j.roomID,
+						From:      cursor,
+						Delta:     dd,
+						Timestamp: delta.NowTimestamp(),
+						Done:      done,
 					}); err != nil {
 						if roomapi.MatchesError(err, roomapi.ErrNeedsResync) && cursor != emptyCursor {
 							cursor = emptyCursor
@@ -222,6 +227,8 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 				}
 			}
 
+			ticker := time.NewTicker(j.o.PingInterval)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ctx.Done():
@@ -231,6 +238,10 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 						return err
 					}
 					return nil
+				case <-ticker.C:
+					if err := doSend(false); err != nil {
+						return err
+					}
 				case <-upd:
 					if err := doSend(false); err != nil {
 						return err

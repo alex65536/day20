@@ -116,21 +116,34 @@ func (w *Warnings) ApplyDelta(d *Warnings) error {
 }
 
 type Player struct {
-	Active          bool                       `json:"active"`
-	Clock           maybe.Maybe[time.Duration] `json:"clock"`
-	ClockUpdateTime time.Time                  `json:"-"`
-	Score           maybe.Maybe[uci.Score]     `json:"score"`
-	PV              []chess.UCIMove            `json:"pv"`
-	Depth           int                        `json:"depth"`
-	Nodes           int64                      `json:"nodes"`
-	NPS             int64                      `json:"nps"`
-	Version         int                        `json:"v"`
+	Active   bool                       `json:"active"`
+	Clock    maybe.Maybe[time.Duration] `json:"clock"`
+	Deadline maybe.Maybe[Timestamp]     `json:"deadline"`
+	Score    maybe.Maybe[uci.Score]     `json:"score"`
+	PV       []chess.UCIMove            `json:"pv"`
+	Depth    int                        `json:"depth"`
+	Nodes    int64                      `json:"nodes"`
+	NPS      int64                      `json:"nps"`
+	Version  int                        `json:"v"`
+}
+
+func (p *Player) ClockFrom(nowTs Timestamp) maybe.Maybe[time.Duration] {
+	if d, ok := p.Deadline.TryGet(); ok {
+		return maybe.Some(d.Sub(nowTs))
+	}
+	return p.Clock
 }
 
 func (p *Player) Clone() *Player {
 	res := *p
 	res.PV = slices.Clone(res.PV)
 	return &res
+}
+
+func (p *Player) FixTimestamps(diff TimestampDiff) {
+	if d, ok := p.Deadline.TryGet(); ok {
+		p.Deadline = maybe.Some(FixTimestamp(diff, d))
+	}
 }
 
 type Cursor struct {
@@ -176,6 +189,15 @@ func NewState() *State {
 		Moves:    &Moves{},
 		White:    &Player{},
 		Black:    &Player{},
+	}
+}
+
+func (s *State) FixTimestamps(diff TimestampDiff) {
+	if s.White != nil {
+		s.White.FixTimestamps(diff)
+	}
+	if s.Black != nil {
+		s.Black.FixTimestamps(diff)
 	}
 }
 

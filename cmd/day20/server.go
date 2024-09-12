@@ -175,14 +175,15 @@ func init() {
 					log.Error("cannot apply delta", slogx.Err(err))
 					break
 				}
-				s, err := json.Marshal(state)
+				ds, err := json.Marshal(d)
 				if err != nil {
-					log.Error("cannot marshal state", slogx.Err(err))
+					log.Error("cannot marshal delta", slogx.Err(err))
 					break
 				}
-				fmt.Println("new state: " + string(s))
+				now := delta.NowTimestamp()
+				fmt.Printf("got delta: %v\n", string(ds))
+				fmt.Printf("new clock: %v - %v\n", state.White.ClockFrom(now).Get(), state.Black.ClockFrom(now).Get())
 			}
-
 		}
 	}
 }
