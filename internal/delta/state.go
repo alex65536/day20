@@ -31,7 +31,7 @@ type Position struct {
 	Board   *chess.Board  `json:"board"`
 	Status  chess.Status  `json:"status"`
 	Verdict chess.Verdict `json:"verdict,omitempty"`
-	Version int           `json:"v"`
+	Version int64         `json:"v"`
 }
 
 func (p *Position) Clone() *Position {
@@ -43,7 +43,7 @@ func (p *Position) Clone() *Position {
 type Moves struct {
 	Moves   []chess.UCIMove          `json:"moves"`
 	Scores  []maybe.Maybe[uci.Score] `json:"scores"`
-	Version int                      `json:"v"`
+	Version int64                    `json:"v"`
 }
 
 func (m *Moves) Clone() *Moves {
@@ -53,7 +53,7 @@ func (m *Moves) Clone() *Moves {
 	return &res
 }
 
-func (m *Moves) Delta(old int) *Moves {
+func (m *Moves) Delta(old int64) *Moves {
 	if old == m.Version {
 		return nil
 	}
@@ -71,7 +71,7 @@ func (m *Moves) ApplyDelta(d *Moves) error {
 	if m.Version >= d.Version {
 		return fmt.Errorf("already up-to-date")
 	}
-	if m.Version+len(d.Moves) != d.Version || m.Version+len(d.Scores) != d.Version {
+	if m.Version+int64(len(d.Moves)) != d.Version || m.Version+int64(len(d.Scores)) != d.Version {
 		return fmt.Errorf("bad delta length")
 	}
 	m.Moves = append(m.Moves, d.Moves...)
@@ -82,7 +82,7 @@ func (m *Moves) ApplyDelta(d *Moves) error {
 
 type Warnings struct {
 	Warn    []string `json:"warn"`
-	Version int      `json:"v"`
+	Version int64    `json:"v"`
 }
 
 func (w *Warnings) Clone() *Warnings {
@@ -91,7 +91,7 @@ func (w *Warnings) Clone() *Warnings {
 	return &res
 }
 
-func (w *Warnings) Delta(old int) *Warnings {
+func (w *Warnings) Delta(old int64) *Warnings {
 	if old == w.Version {
 		return nil
 	}
@@ -107,7 +107,7 @@ func (w *Warnings) ApplyDelta(d *Warnings) error {
 	if w.Version >= d.Version {
 		return fmt.Errorf("already up-to-date")
 	}
-	if w.Version+len(d.Warn) != d.Version {
+	if w.Version+int64(len(d.Warn)) != d.Version {
 		return fmt.Errorf("bad delta length")
 	}
 	w.Warn = append(w.Warn, d.Warn...)
@@ -124,7 +124,7 @@ type Player struct {
 	Depth    int                        `json:"depth"`
 	Nodes    int64                      `json:"nodes"`
 	NPS      int64                      `json:"nps"`
-	Version  int                        `json:"v"`
+	Version  int64                      `json:"v"`
 }
 
 func (p *Player) ClockFrom(nowTs Timestamp) maybe.Maybe[time.Duration] {
@@ -147,12 +147,12 @@ func (p *Player) FixTimestamps(diff TimestampDiff) {
 }
 
 type Cursor struct {
-	HasInfo  bool `json:"has_info"`
-	Warnings int  `json:"warnings"`
-	Position int  `json:"position"`
-	Moves    int  `json:"moves"`
-	White    int  `json:"white"`
-	Black    int  `json:"black"`
+	HasInfo  bool  `json:"has_info"`
+	Warnings int64 `json:"warnings"`
+	Position int64 `json:"position"`
+	Moves    int64 `json:"moves"`
+	White    int64 `json:"white"`
+	Black    int64 `json:"black"`
 }
 
 func b2i(b bool) int {

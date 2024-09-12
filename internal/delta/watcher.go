@@ -94,7 +94,7 @@ func (w *Watcher) updateGameUnlocked(game *battle.GameExt) {
 		panic("must not happen")
 	}
 
-	oldLen, newLen := w.state.Moves.Version, len(game.Scores)
+	oldLen, newLen := int(w.state.Moves.Version), len(game.Scores)
 	for i := oldLen; i < newLen; i++ {
 		move := game.Game.MoveAt(i)
 		w.state.Moves.Moves = append(w.state.Moves.Moves, move.UCIMove())
@@ -102,7 +102,7 @@ func (w *Watcher) updateGameUnlocked(game *battle.GameExt) {
 		w.state.Position.Version++
 	}
 	w.state.Moves.Scores = append(w.state.Moves.Scores, game.Scores[oldLen:newLen]...)
-	w.state.Moves.Version = newLen
+	w.state.Moves.Version = int64(newLen)
 
 	status := game.Game.Outcome().Status()
 	verdict := game.Game.Outcome().Verdict()
@@ -134,7 +134,7 @@ func (w *Watcher) OnGameFinished(game *battle.GameExt, warn battle.Warnings) {
 	w.updateGameUnlocked(game)
 	if len(warn) != 0 {
 		w.state.Warnings.Warn = slices.Clone(warn)
-		w.state.Warnings.Version = len(warn)
+		w.state.Warnings.Version = int64(len(warn))
 	}
 }
 
