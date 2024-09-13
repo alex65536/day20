@@ -148,7 +148,7 @@ type theMap struct {
 }
 
 func sanitizeEngineName(name string) bool {
-	if name == "" || strings.HasPrefix(name, ".") {
+	if name == "" || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
 		return false
 	}
 	for i := range len(name) {
