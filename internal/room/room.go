@@ -290,7 +290,6 @@ func (j *job) do(ctx context.Context) error {
 	}
 	err = <-updateCh
 	if err != nil {
-		j.log.Error("cannot send updates", slogx.Err(err))
 		return fmt.Errorf("send updates: %w", err)
 	}
 
