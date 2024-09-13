@@ -32,7 +32,8 @@ type EnginePool interface {
 }
 
 type EnginePoolOptions struct {
-	Name          string
+	ShortName     string
+	ExeName       string
 	Args          []string
 	Options       map[string]uci.OptValue
 	EngineOptions uci.EngineOptions
@@ -76,7 +77,11 @@ func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (
 	if !ok {
 		panic("must not happen")
 	}
-	pool.name = fmt.Sprintf("%v at %v", info.Name, o.Name)
+	name := o.ShortName
+	if name == "" {
+		name = o.ExeName
+	}
+	pool.name = fmt.Sprintf("%v at %v", info.Name, name)
 	pool.ReleaseEngine(e)
 
 	return pool, err
@@ -115,7 +120,7 @@ func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
 	}
 
 	e, err := uci.NewEasyEngine(p.ctx, uci.EasyEngineOptions{
-		Name:            p.o.Name,
+		Name:            p.o.ExeName,
 		Args:            p.o.Args,
 		SysProcAttr:     engineSysProcAttr(),
 		Options:         p.o.EngineOptions,

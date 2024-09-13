@@ -11,26 +11,28 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
+	"github.com/alex65536/day20/internal/enginemap"
 	"github.com/alex65536/day20/internal/opening"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/util/backoff"
 	randutil "github.com/alex65536/day20/internal/util/rand"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/chess"
-	"github.com/alex65536/go-chess/uci"
 	"github.com/alex65536/go-chess/util/maybe"
 )
 
 type Options struct {
-	Client              roomapi.ClientOptions
-	JobPollDuration     time.Duration
-	ByeTimeout          time.Duration
-	RequestTimeout      time.Duration
-	Backoff             backoff.Options
-	Watcher             delta.WatcherOptions
-	EngineOptions       uci.EngineOptions
-	EngineCreateTimeout maybe.Maybe[time.Duration]
-	PingInterval        time.Duration
+	Client          roomapi.ClientOptions
+	JobPollDuration time.Duration
+	ByeTimeout      time.Duration
+	RequestTimeout  time.Duration
+	Backoff         backoff.Options
+	Watcher         delta.WatcherOptions
+	PingInterval    time.Duration
+}
+
+type Config struct {
+	EngineMap enginemap.Map
 }
 
 func (o *Options) FillDefaults() {
@@ -77,15 +79,17 @@ type job struct {
 	desc   *roomapi.Job
 	roomID string
 	log    *slog.Logger
+	mp     enginemap.Map
 }
 
-func newJob(client roomapi.API, o *Options, desc *roomapi.Job, roomID string, log *slog.Logger) *job {
+func newJob(client roomapi.API, o *Options, cfg *Config, desc *roomapi.Job, roomID string, log *slog.Logger) *job {
 	return &job{
 		client: client,
 		o:      o,
 		desc:   desc,
 		roomID: roomID,
 		log:    log.With(slog.String("job_id", randutil.InsecureID())),
+		mp:     cfg.EngineMap,
 	}
 }
 
@@ -115,16 +119,6 @@ func (j *job) prefail(ctx context.Context, failErr error) error {
 		Done:   true,
 		Error:  failErr.Error(),
 	})
-}
-
-func (j *job) makePoolOptions(e roomapi.JobEngine) battle.EnginePoolOptions {
-	return battle.EnginePoolOptions{
-		Name:          e.Name,
-		Args:          nil,
-		Options:       nil,
-		EngineOptions: j.o.EngineOptions.Clone(),
-		CreateTimeout: j.o.EngineCreateTimeout,
-	}
 }
 
 func (j *job) closeBattle(battle *battle.Battle) {
@@ -163,7 +157,11 @@ func (j *job) makeBattle(ctx context.Context) (*battle.Battle, error) {
 	}
 	book := opening.NewSingleGameBook(game)
 
-	wpool, err := battle.NewEnginePool(ctx, j.log.With(slog.String("color", "white")), j.makePoolOptions(j.desc.White))
+	wopts, err := j.mp.GetOptions(j.desc.White)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get white options: %w", err)
+	}
+	wpool, err := battle.NewEnginePool(ctx, j.log.With(slog.String("color", "white")), wopts)
 	if err != nil {
 		return nil, fmt.Errorf("create white pool: %w", err)
 	}
@@ -173,7 +171,11 @@ func (j *job) makeBattle(ctx context.Context) (*battle.Battle, error) {
 		}
 	}()
 
-	bpool, err := battle.NewEnginePool(ctx, j.log.With(slog.String("color", "black")), j.makePoolOptions(j.desc.Black))
+	bopts, err := j.mp.GetOptions(j.desc.Black)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get black options: %w", err)
+	}
+	bpool, err := battle.NewEnginePool(ctx, j.log.With(slog.String("color", "black")), bopts)
 	if err != nil {
 		return nil, fmt.Errorf("create black pool: %w", err)
 	}
@@ -320,6 +322,7 @@ func (j *job) do(ctx context.Context) error {
 type room struct {
 	client roomapi.API
 	o      *Options
+	cfg    *Config
 	roomID string
 }
 
@@ -369,7 +372,7 @@ func (r *room) do(ctx context.Context, log *slog.Logger) error {
 		backoff.Reset()
 
 		if err := func() error {
-			job := newJob(r.client, r.o, &rsp.Job, r.roomID, log)
+			job := newJob(r.client, r.o, r.cfg, &rsp.Job, r.roomID, log)
 			if err := job.do(ctx); err != nil {
 				return fmt.Errorf("do job: %w", err)
 			}
@@ -405,7 +408,7 @@ func (r *room) bye(log *slog.Logger) {
 	}
 }
 
-func Loop(ctx context.Context, log *slog.Logger, o Options) error {
+func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 	o.FillDefaults()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -444,6 +447,7 @@ func Loop(ctx context.Context, log *slog.Logger, o Options) error {
 		r := &room{
 			client: client,
 			o:      &o,
+			cfg:    &cfg,
 			roomID: rsp.RoomID,
 		}
 		if err := r.do(ctx, log); err != nil {
