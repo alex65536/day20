@@ -101,7 +101,7 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 	for {
 		_, err := requestWithTimeout(ctx, j.o.RequestTimeout, j.client.Update, upd)
 		if err != nil {
-			j.log.Warn("error sending update", slogx.Err(err))
+			j.log.Info("error sending update", slogx.Err(err))
 			if err := retryBackoff(ctx, backoff, err); err != nil {
 				return fmt.Errorf("update job: %w", err)
 			}
