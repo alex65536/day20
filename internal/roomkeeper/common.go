@@ -45,11 +45,11 @@ type JobStatus struct {
 	Reason string
 }
 
-func NewStatusRunning() JobStatus { return JobStatus{Kind: JobRunning} }
+func NewStatusRunning() JobStatus   { return JobStatus{Kind: JobRunning} }
 func NewStatusSucceeded() JobStatus { return JobStatus{Kind: JobSucceeded} }
 func NewStatusAborted(reason string) JobStatus {
 	return JobStatus{
-		Kind: JobAborted,
+		Kind:   JobAborted,
 		Reason: reason,
 	}
 }
