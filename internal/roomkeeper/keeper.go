@@ -188,7 +188,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}
 	defer room.release()
 
-	log.Info("updating room", slog.String("room_id", req.RoomID))
+	log.Info("updating room")
 
 	job := room.room.Job()
 	if job == nil {
@@ -328,7 +328,7 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 	func() {
 		k.mu.Lock()
 		defer k.mu.Unlock()
-		roomID := id.ID()
+		roomID = id.ID()
 		if _, ok := k.rooms[roomID]; ok {
 			panic("id collision")
 		}
@@ -339,7 +339,8 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 		k.rooms[roomID] = newRoomExt(desc)
 	}()
 
-	log.Info("created room", slog.String("room_id", roomID))
+	log = log.With(slog.String("room_id", roomID))
+	log.Info("created room")
 
 	if err := k.db.UpdateRoom(ctx, desc); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
@@ -361,7 +362,7 @@ func (k *Keeper) Bye(ctx context.Context, req *roomapi.ByeRequest) (*roomapi.Bye
 	}
 	// No release needed, we are going to delete the room!
 
-	log.Info("deleting room", slog.String("room_id", req.RoomID))
+	log.Info("deleting room"))
 	k.mu.Lock()
 	delete(k.rooms, room.room.ID())
 	k.mu.Unlock()
