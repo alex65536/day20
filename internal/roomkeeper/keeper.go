@@ -362,7 +362,7 @@ func (k *Keeper) Bye(ctx context.Context, req *roomapi.ByeRequest) (*roomapi.Bye
 	}
 	// No release needed, we are going to delete the room!
 
-	log.Info("deleting room"))
+	log.Info("deleting room")
 	k.mu.Lock()
 	delete(k.rooms, room.room.ID())
 	k.mu.Unlock()
