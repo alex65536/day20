@@ -152,8 +152,7 @@ func sanitizeEngineName(name string) bool {
 		return false
 	}
 	for i := range len(name) {
-		if b := name[i]
-			('a' <= b && b <= 'z') ||
+		if b := name[i]; ('a' <= b && b <= 'z') ||
 			('A' <= b && b <= 'Z') ||
 			('0' <= b && b <= '9') ||
 			b == '_' || b == '-' || b == '.' {

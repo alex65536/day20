@@ -11,6 +11,7 @@ import (
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	httputil "github.com/alex65536/day20/internal/util/http"
+	"github.com/alex65536/day20/internal/util/id"
 	"github.com/alex65536/day20/internal/util/slogx"
 )
 
@@ -122,7 +123,7 @@ func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
 	if curJob := r.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.JobID, NewStatusAborted("room stopped"))
+		k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted("room stopped"))
 	}
 	r.room.Stop()
 	if err := k.db.DeleteRoom(ctx, roomID); err != nil {
@@ -218,7 +219,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 		if mustAbort {
 			status = NewStatusAborted("failed to finish job properly")
 		}
-		k.sched.OnJobFinished(job.JobID, status)
+		k.sched.OnJobFinished(job.Desc.ID, status)
 	}()
 
 	if err := k.db.UpdateRoom(ctx, room.room.Desc().Clone()); err != nil {
@@ -296,7 +297,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 	}
 
 	if curJob := room.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.JobID, NewStatusAborted("job lost by room"))
+		k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted("job lost by room"))
 	}
 	room.room.SetJob(job)
 
@@ -327,7 +328,10 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 	func() {
 		k.mu.Lock()
 		defer k.mu.Unlock()
-		roomID = genUnusedKey(k.rooms)
+		roomID := id.ID()
+		if _, ok := k.rooms[roomID]; ok {
+			panic("id collision")
+		}
 		desc = RoomDesc{
 			RoomID: roomID,
 			Job:    nil,

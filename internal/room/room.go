@@ -15,7 +15,6 @@ import (
 	"github.com/alex65536/day20/internal/opening"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/util/backoff"
-	randutil "github.com/alex65536/day20/internal/util/rand"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/util/maybe"
@@ -88,7 +87,7 @@ func newJob(client roomapi.API, o *Options, cfg *Config, desc *roomapi.Job, room
 		o:      o,
 		desc:   desc,
 		roomID: roomID,
-		log:    log.With(slog.String("job_id", randutil.InsecureID())),
+		log:    log.With(slog.String("job_id", desc.ID)),
 		mp:     cfg.EngineMap,
 	}
 }

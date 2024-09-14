@@ -6,6 +6,7 @@ import (
 
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
+	"github.com/alex65536/day20/internal/util/id"
 )
 
 type room struct {
@@ -37,7 +38,10 @@ func (r *room) Subscribe() (<-chan struct{}, func()) {
 		close(ch)
 		return ch, func() {}
 	}
-	id := genUnusedKey(r.subs)
+	id := id.ID()
+	if _, ok := r.subs[id]; ok {
+		panic("id collision")
+	}
 	ch := make(chan struct{}, 1)
 	r.subs[id] = ch
 	return ch, func() {

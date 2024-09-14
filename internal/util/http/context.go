@@ -3,14 +3,14 @@ package http
 import (
 	"context"
 
-	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/id"
 )
 
 type reqIDKey struct{}
 
 func NewRequestContext(parent context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(parent)
-	ctx = context.WithValue(ctx, reqIDKey{}, randutil.InsecureID())
+	ctx = context.WithValue(ctx, reqIDKey{}, id.ID())
 	return ctx, cancel
 }
 

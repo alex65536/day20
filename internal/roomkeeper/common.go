@@ -9,7 +9,6 @@ import (
 )
 
 type Job struct {
-	JobID     string
 	ContestID string
 	Desc      roomapi.Job
 }

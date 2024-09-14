@@ -15,7 +15,7 @@ import (
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
-	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/id"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/clock"
 	"github.com/spf13/cobra"
@@ -53,9 +53,9 @@ var globalControl clock.Control
 
 func (scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 	return &roomkeeper.Job{
-		JobID:     randutil.InsecureID(),
 		ContestID: "contest0",
 		Desc: roomapi.Job{
+			ID:          id.ID(),
 			TimeControl: &globalControl,
 			White: roomapi.JobEngine{
 				Name: "stockfish",
