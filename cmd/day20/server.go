@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -13,11 +12,11 @@ import (
 	"time"
 
 	"github.com/alex65536/day20/internal/battle"
-	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/util/id"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/clock"
 	"github.com/spf13/cobra"
 )
@@ -122,6 +121,9 @@ func init() {
 		}); err != nil {
 			return fmt.Errorf("handle server: %w", err)
 		}
+		webui.Handle(log, mux, "", webui.Config{
+			Keeper: keeper,
+		}, webui.Options{})
 
 		servFin := make(chan struct{})
 		servCtx, servCancel := context.WithCancel(ctx)
@@ -148,61 +150,7 @@ func init() {
 			_ = server.Shutdown(servCtx)
 		}()
 
-		for {
-			rooms := keeper.ListRooms()
-			if len(rooms) == 0 {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(100 * time.Millisecond):
-					continue
-				}
-			}
-			ch, _, ok := keeper.Subscribe(rooms[0].ID)
-			if !ok {
-				log.Info("cannot subscribe to room")
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(100 * time.Millisecond):
-					continue
-				}
-			}
-			log.Info("successfully subscribed to room")
-			state := delta.NewRoomState()
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-ch:
-				}
-				d, _, err := keeper.RoomStateDelta(rooms[0].ID, state.Cursor())
-				if err != nil {
-					if roomapi.MatchesError(err, roomapi.ErrNoSuchRoom) {
-						break
-					}
-					if roomapi.MatchesError(err, roomapi.ErrNoJobRunning) {
-						state = delta.NewRoomState()
-						continue
-					}
-					log.Warn("error getting state", slogx.Err(err))
-					break
-				}
-				if err := state.ApplyDelta(d); err != nil {
-					log.Error("cannot apply delta", slogx.Err(err))
-					break
-				}
-				ds, err := json.Marshal(d)
-				if err != nil {
-					log.Error("cannot marshal delta", slogx.Err(err))
-					break
-				}
-				now := delta.NowTimestamp()
-				fmt.Printf("got delta: %v\n", string(ds))
-				if state.State != nil {
-					fmt.Printf("new clock: %v - %v\n", state.State.White.ClockFrom(now).Get(), state.State.Black.ClockFrom(now).Get())
-				}
-			}
-		}
+		<-ctx.Done()
+		return nil
 	}
 }

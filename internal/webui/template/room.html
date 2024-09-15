@@ -1,0 +1,32 @@
+{{define "title"}}Room {{.Name}}{{end}}
+
+{{define "head"}}
+  <!-- more 3rd-party libs -->
+  <link rel="stylesheet" type="text/css" href="{{"/css/chessboard.css" | asStaticURL}}">
+  <script src="{{"/js/chessboard.js" | asStaticURL}}"></script>
+{{end}}
+
+{{define "body"}}
+  <div id="room-body" hx-ext="ws" ws-connect="{{.ID | printf "/room/%v/ws" | asURL}}">
+    {{template "cursor" .Cursor}}
+    <div id="main-board" style="width: 400px"></div>
+    {{template "fen" .}}
+    <script>
+      var mainBoard = Chessboard('main-board', {
+        draggable: false,
+        showNotation: true,
+        position: '{{.FEN}}',
+        pieceTheme: '/img/piece/cburnett/{piece}.svg',
+      })
+      htmx.onLoad(function(content) {
+        var elt = content.querySelector('#fen-data')
+        if (elt) {
+          mainBoard.position(elt.innerHTML)
+        }
+      })
+    </script>
+    {{template "player" .White}}
+    {{template "player" .Black}}
+    <a href="{{.ID | printf "/room/%v/pgn" | asURL}}" target="_blank">PGN</a>
+  </div>
+{{end}}
