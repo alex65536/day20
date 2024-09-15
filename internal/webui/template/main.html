@@ -1,0 +1,9 @@
+{{define "title"}}Rooms{{end}}
+{{define "body"}}
+<h1>Available Rooms</h1>
+<ul>
+  {{range $i, $room := .Rooms}}
+    <li><a href="{{$room.ID | printf "/room/%v" | asURL}}">Room {{$room.Name}}</a></li>
+  {{end}}
+</ul>
+{{end}}

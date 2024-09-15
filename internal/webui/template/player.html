@@ -1,0 +1,34 @@
+{{define "player"}}
+  <div id="player-{{.Color}}" {{template "ajax" .}}>
+    <div>
+      <span>{{.ColorText}} Player: {{.Name}}</span>
+
+      {{if .Active}}
+        <span>Thinking</span>
+      {{else}}
+        <span>Idle</span>
+      {{end}}
+    </div>
+
+    {{if .Clock}}
+      <div
+        id="{{.Color}}-clock"
+        data-clock-msecs="{{.Clock.Msecs}}"
+        data-clock-active="{{.Clock.Active}}"
+        hx-on:htmx:before-swap="{{.ClockVar}}.stop()"
+      ></div>
+      <script>
+        var {{.ClockVar}} = newClock('{{.Color}}-clock')
+      </script>
+    {{end}}
+
+    <div>PV: {{.PV}}</div>
+
+    <div>
+      <span>Score: {{.Score}}</span>
+      <span>Depth: {{.Depth}}</span>
+      <span>Nodes: {{.Nodes}}</span>
+      <span>NPS: {{.NPS}}</span>
+    </div>
+  </div>
+{{end}}

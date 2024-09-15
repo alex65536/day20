@@ -1,0 +1,24 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{block "title" .}}No title{{end}} — Day20</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- 3rd party libs -->
+    <script src="{{"/js/jquery.js" | asStaticURL}}"></script>
+    <script src="{{"/js/htmx.js" | asStaticURL}}"></script>
+    <script src="{{"/js/htmx-ext-ws.js" | asStaticURL}}"></script>
+
+    <!-- our libs -->
+    <script src="{{"/js/day20.js" | asStaticURL}}"></script>
+
+    {{block "head" .}}{{end}}
+  </head>
+  <body>
+    {{block "body" .}}{{end}}
+  </body>
+</html>
+{{end}}
+{{define "ajax"}}{{end}}
