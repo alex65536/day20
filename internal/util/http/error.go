@@ -18,7 +18,19 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("http error %v: %v", e.code, e.message)
 }
 
-func (e *Error) Code() int { return e.code }
+func (e *Error) Code() int       { return e.code }
+func (e *Error) Message() string { return e.message }
+
+func (e *Error) ApplyHeaders(w http.ResponseWriter) {
+	if e.headers == nil {
+		return
+	}
+	for k, vs := range e.headers {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+}
 
 func MakeError(code int, message string) error {
 	return &Error{code: code, message: message}
@@ -55,12 +67,8 @@ func WriteErrorResponse(err error, w http.ResponseWriter) error {
 		message = fmt.Sprintf("internal server error: %v", err)
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	if httpErr != nil && httpErr.headers != nil {
-		for k, vs := range httpErr.headers {
-			for _, v := range vs {
-				w.Header().Add(k, v)
-			}
-		}
+	if httpErr != nil {
+		httpErr.ApplyHeaders(w)
 	}
 	w.WriteHeader(code)
 	if _, err := io.WriteString(w, message); err != nil {
