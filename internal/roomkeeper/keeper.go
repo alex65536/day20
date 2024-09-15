@@ -381,7 +381,7 @@ func (k *Keeper) ListRooms() []RoomInfo {
 	defer k.mu.RUnlock()
 	res := make([]RoomInfo, 0, len(k.rooms))
 	for _, room := range k.rooms {
-		res = append(res, room.room.Desc().Info)
+		res = append(res, room.room.Info())
 	}
 	slices.SortFunc(res, func(a, b RoomInfo) int {
 		return cmp.Compare(a.ID, b.ID)
@@ -399,7 +399,7 @@ func (k *Keeper) RoomInfo(roomID string) (RoomInfo, error) {
 			Message: "no such room",
 		}
 	}
-	return room.room.Desc().Info, nil
+	return room.room.Info(), nil
 }
 
 func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok bool) {

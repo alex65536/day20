@@ -64,8 +64,12 @@ func (r *room) onUpdate() {
 	}
 }
 
+func (r *room) Info() RoomInfo {
+	return r.desc.Info
+}
+
 func (r *room) ID() string {
-	return r.desc.Info.ID
+	return r.Info().ID
 }
 
 func (r *room) Desc() RoomDesc {
