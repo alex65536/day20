@@ -11,6 +11,7 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/opening"
+	"github.com/alex65536/day20/internal/stat"
 )
 
 type Options struct {
@@ -19,7 +20,7 @@ type Options struct {
 	Battle battle.Options
 }
 
-type Watcher func(s Status, warn battle.Warnings)
+type Watcher func(s stat.Status, warn battle.Warnings)
 
 type Config struct {
 	Writer  WriterConfig
@@ -29,7 +30,7 @@ type Config struct {
 	Watcher Watcher
 }
 
-func Fight(ctx context.Context, o Options, c Config) (Status, error) {
+func Fight(ctx context.Context, o Options, c Config) (stat.Status, error) {
 	eg, gctx := errgroup.WithContext(ctx)
 	eg.SetLimit(o.Jobs)
 
@@ -84,7 +85,7 @@ func Fight(ctx context.Context, o Options, c Config) (Status, error) {
 	}()
 
 	writer := NewWriter(c.Writer)
-	status := Status{Win: 0, Draw: 0, Lose: 0}
+	status := stat.Status{Win: 0, Draw: 0, Lose: 0}
 	c.Watcher(status, nil)
 	for i := range o.Games {
 		select {

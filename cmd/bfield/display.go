@@ -10,6 +10,7 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/field"
+	"github.com/alex65536/day20/internal/stat"
 	"github.com/alex65536/day20/internal/util/style"
 )
 
@@ -72,17 +73,17 @@ func formatLOS(los float64) string {
 	return style.WithS(fmt.Sprintf("%.2f", los), 1, color)
 }
 
-func formatWinner(f float64, winner field.Winner) string {
+func formatWinner(f float64, winner stat.Winner) string {
 	var (
 		color int
 		bold  bool
 		text  string
 	)
 	switch winner {
-	case field.WinnerUnclear:
+	case stat.WinnerUnclear:
 		color = 33
 		text = "Unclear"
-	case field.WinnerFirst:
+	case stat.WinnerFirst:
 		switch f {
 		case 0.90:
 			color = 34
@@ -95,7 +96,7 @@ func formatWinner(f float64, winner field.Winner) string {
 			panic("must not happen")
 		}
 		text = fmt.Sprintf("First(p=%.2f)", f)
-	case field.WinnerSecond:
+	case stat.WinnerSecond:
 		switch f {
 		case 0.90:
 			color = 35
@@ -118,7 +119,7 @@ func formatWinner(f float64, winner field.Winner) string {
 	return style.WithS(text, styles...)
 }
 
-func formatEloDiff(d field.EloDiff) string {
+func formatEloDiff(d stat.EloDiff) string {
 	doFmt := func(f float64) string {
 		if f == math.Inf(+1) {
 			return style.WithS("oo", 33, 1)
@@ -132,12 +133,12 @@ func formatEloDiff(d field.EloDiff) string {
 }
 
 type display interface {
-	Display(status field.Status, warn battle.Warnings) error
-	FinalDisplay(status field.Status) error
+	Display(status stat.Status, warn battle.Warnings) error
+	FinalDisplay(status stat.Status) error
 }
 
 func makeWatcher(d display) field.Watcher {
-	return func(status field.Status, warn battle.Warnings) {
+	return func(status stat.Status, warn battle.Warnings) {
 		if err := d.Display(status, warn); err != nil {
 			panic(err)
 		}
@@ -186,7 +187,7 @@ func (d *displayImpl) displayWarn(warn battle.Warnings) error {
 	return nil
 }
 
-func (d *displayImpl) displayResult(status field.Status) error {
+func (d *displayImpl) displayResult(status stat.Status) error {
 	if _, err := fmt.Fprintf(
 		d.out,
 		""+
@@ -206,7 +207,7 @@ func (d *displayImpl) displayResult(status field.Status) error {
 	return nil
 }
 
-func (d *displayImpl) displayProgress(status field.Status, fancy bool) error {
+func (d *displayImpl) displayProgress(status stat.Status, fancy bool) error {
 	elapsed := time.Since(d.start)
 	completed, total := status.Total(), d.total
 	ratio := 1.0
@@ -248,7 +249,7 @@ func (d *displayImpl) displayProgress(status field.Status, fancy bool) error {
 	return nil
 }
 
-func (d *displayImpl) Display(status field.Status, warn battle.Warnings) error {
+func (d *displayImpl) Display(status stat.Status, warn battle.Warnings) error {
 	if d.fancy && !d.quiet {
 		if err := d.erase(); err != nil {
 			return fmt.Errorf("erase: %w", err)
@@ -283,7 +284,7 @@ func (d *displayImpl) Display(status field.Status, warn battle.Warnings) error {
 	return nil
 }
 
-func (d *displayImpl) FinalDisplay(status field.Status) error {
+func (d *displayImpl) FinalDisplay(status stat.Status) error {
 	if d.fancy && !d.quiet {
 		return nil
 	}
