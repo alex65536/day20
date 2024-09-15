@@ -2,11 +2,14 @@ package roomkeeper
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
 )
+
+var ErrGameNotReady = errors.New("game not ready")
 
 type Job struct {
 	ContestID string

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/util/id"
@@ -71,6 +72,25 @@ func (r *room) onUpdate() {
 		default:
 		}
 	}
+}
+
+func (r *room) GameExt() (*battle.GameExt, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.state.State == nil {
+		return nil, &roomapi.Error{
+			Code:    roomapi.ErrNoJobRunning,
+			Message: "no such job",
+		}
+	}
+	if r.state.State.Info == nil {
+		return nil, ErrGameNotReady
+	}
+	g, err := r.state.State.GameExt()
+	if err != nil {
+		return nil, fmt.Errorf("build game: %w", err)
+	}
+	return g, nil
 }
 
 func (r *room) Info() RoomInfo {

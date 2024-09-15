@@ -188,6 +188,13 @@ func b2i(b bool) int {
 	}
 }
 
+func (c JobCursor) Player(col chess.Color) int64 {
+	if col == chess.ColorWhite {
+		return c.White
+	}
+	return c.Black
+}
+
 func (c JobCursor) StrictLessEq(d JobCursor) bool {
 	return b2i(c.HasInfo) <= b2i(d.HasInfo) &&
 		c.Warnings <= d.Warnings &&
@@ -336,6 +343,9 @@ func (s *JobState) ApplyDelta(d *JobState) error {
 func (s *JobState) GameExt() (*battle.GameExt, error) {
 	if err := s.ValidateFull(); err != nil {
 		return nil, fmt.Errorf("validate: %w", err)
+	}
+	if s.Info == nil {
+		return nil, fmt.Errorf("game not ready")
 	}
 
 	board, err := chess.NewBoard(s.Info.StartPos)

@@ -15,7 +15,7 @@ func TimestampBase() time.Time {
 }
 
 func NowTimestamp() Timestamp {
-	return Timestamp(time.Now().Sub(timestampBase))
+	return Timestamp(time.Since(timestampBase))
 }
 
 type TimestampDiff struct {

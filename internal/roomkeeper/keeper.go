@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	httputil "github.com/alex65536/day20/internal/util/http"
@@ -121,6 +122,12 @@ func (k *Keeper) gc() {
 }
 
 func (k *Keeper) stop(ctx context.Context, r *roomExt) {
+	r.mu.Lock()
+	locked := r.locked
+	r.mu.Unlock()
+	if !locked {
+		panic("must not happen")
+	}
 	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
 	if curJob := r.room.Job(); curJob != nil {
@@ -151,14 +158,9 @@ func (k *Keeper) logFromCtx(ctx context.Context) *slog.Logger {
 }
 
 func (k *Keeper) getAndAcquireRoom(roomID string) (*roomExt, error) {
-	k.mu.Lock()
-	defer k.mu.Unlock()
-	r, ok := k.rooms[roomID]
-	if !ok {
-		return nil, &roomapi.Error{
-			Code:    roomapi.ErrNoSuchRoom,
-			Message: "room not found",
-		}
+	r, err := k.doGetRoom(roomID)
+	if err != nil {
+		return nil, err
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -389,24 +391,42 @@ func (k *Keeper) ListRooms() []RoomInfo {
 	return res
 }
 
-func (k *Keeper) RoomInfo(roomID string) (RoomInfo, error) {
+func (k *Keeper) doGetRoom(roomID string) (*roomExt, error) {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	room, ok := k.rooms[roomID]
 	if !ok {
-		return RoomInfo{}, &roomapi.Error{
+		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoSuchRoom,
 			Message: "no such room",
 		}
+	}
+	return room, nil
+}
+
+func (k *Keeper) RoomGameExt(roomID string) (*battle.GameExt, error) {
+	room, err := k.doGetRoom(roomID)
+	if err != nil {
+		return nil, err
+	}
+	g, err := room.room.GameExt()
+	if err != nil {
+		return nil, fmt.Errorf("room game: %w", err)
+	}
+	return g, nil
+}
+
+func (k *Keeper) RoomInfo(roomID string) (RoomInfo, error) {
+	room, err := k.doGetRoom(roomID)
+	if err != nil {
+		return RoomInfo{}, err
 	}
 	return room.room.Info(), nil
 }
 
 func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok bool) {
-	k.mu.RLock()
-	defer k.mu.RUnlock()
-	room, ok := k.rooms[roomID]
-	if !ok {
+	room, err := k.doGetRoom(roomID)
+	if err != nil {
 		return nil, nil, false
 	}
 	ch, cancel = room.room.Subscribe()
@@ -414,14 +434,9 @@ func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok
 }
 
 func (k *Keeper) RoomStateDelta(roomID string, old delta.RoomCursor) (*delta.RoomState, delta.RoomCursor, error) {
-	k.mu.RLock()
-	defer k.mu.RUnlock()
-	room, ok := k.rooms[roomID]
-	if !ok {
-		return nil, delta.RoomCursor{}, &roomapi.Error{
-			Code:    roomapi.ErrNoSuchRoom,
-			Message: "no such room",
-		}
+	room, err := k.doGetRoom(roomID)
+	if err != nil {
+		return nil, delta.RoomCursor{}, err
 	}
 	d, cursor, err := room.room.StateDelta(old)
 	if err != nil {

@@ -119,10 +119,14 @@ func pgnDoWordWrap(b *strings.Builder, s string, maxLineLen int) {
 
 func (g *GameExt) PGN() (string, error) {
 	var b strings.Builder
+	roundStr := "?"
+	if g.Round != 0 {
+		roundStr = strconv.FormatInt(int64(g.Round), 10)
+	}
 	_, _ = b.WriteString(makePGNTag("Event", "Day20 Battle"))
 	_, _ = b.WriteString(makePGNTag("Site", "?"))
 	_, _ = b.WriteString(makePGNTag("Date", "????.??.??"))
-	_, _ = b.WriteString(makePGNTag("Round", strconv.FormatInt(int64(g.Round), 10)))
+	_, _ = b.WriteString(makePGNTag("Round", roundStr))
 	_, _ = b.WriteString(makePGNTag("White", g.WhiteName))
 	_, _ = b.WriteString(makePGNTag("Black", g.BlackName))
 	_, _ = b.WriteString(makePGNTag("Result", g.Game.Outcome().Status().String()))
