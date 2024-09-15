@@ -2,16 +2,19 @@ package http
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/alex65536/day20/internal/util/id"
 )
 
 type reqIDKey struct{}
 
-func NewRequestContext(parent context.Context) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(parent)
-	ctx = context.WithValue(ctx, reqIDKey{}, id.ID())
-	return ctx, cancel
+func WrapRequestContext(parent context.Context) context.Context {
+	return context.WithValue(parent, reqIDKey{}, id.ID())
+}
+
+func WrapRequest(req *http.Request) *http.Request {
+	return req.WithContext(WrapRequestContext(req.Context()))
 }
 
 func ExtractReqID(ctx context.Context) string {

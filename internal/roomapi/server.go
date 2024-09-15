@@ -26,26 +26,25 @@ func makeHandler[Req any, Rsp any](
 	fn func(context.Context, *Req) (*Rsp, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, hReq *http.Request) {
-		ctx, cancel := httputil.NewRequestContext(context.Background())
-		defer cancel()
+		hReq = httputil.WrapRequest(hReq)
+		ctx := hReq.Context()
 
-		log := log.With(
-			slog.String("addr", hReq.RemoteAddr),
-			slog.String("method", hReq.Method),
-			slog.String("rid", httputil.ExtractReqID(ctx)),
-		)
+		log := log.With(slog.String("rid", httputil.ExtractReqID(ctx)))
 
 		if err := func() error {
-			log.Info("handle roomapi request")
+			log.Info("handle roomapi request",
+				slog.String("method", hReq.Method),
+				slog.String("addr", hReq.RemoteAddr),
+			)
 
 			if hReq.Method != http.MethodPost {
 				log.Warn("unsupported method")
-				return httputil.MakeHTTPError(http.StatusMethodNotAllowed, "method not allowed")
+				return httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 			}
 
 			if contentType := hReq.Header.Get("Content-Type"); contentType != "application/json" {
 				log.Warn("bad request content type", slog.String("content_type", contentType))
-				return httputil.MakeHTTPError(http.StatusUnsupportedMediaType, "bad request content type")
+				return httputil.MakeError(http.StatusUnsupportedMediaType, "bad request content type")
 			}
 
 			tokenChecked := false
@@ -68,11 +67,11 @@ func makeHandler[Req any, Rsp any](
 				}
 				tokenChecked = true
 			} else {
-				return httputil.MakeHTTPAuthError("bad auth", "Bearer")
+				return httputil.MakeAuthError("bad auth", "Bearer")
 			}
 			if !tokenChecked {
 				// Extra safeguard to protect against auth bypass.
-				return httputil.MakeHTTPAuthError("bad auth", "Bearer")
+				return httputil.MakeAuthError("bad auth", "Bearer")
 			}
 
 			reqBytes, err := io.ReadAll(hReq.Body)
@@ -83,7 +82,7 @@ func makeHandler[Req any, Rsp any](
 			var req *Req
 			if err := json.Unmarshal(reqBytes, &req); err != nil {
 				log.Warn("error unmarshalling json", slogx.Err(err))
-				return httputil.MakeHTTPError(http.StatusBadRequest, "unmarshal json request")
+				return httputil.MakeError(http.StatusBadRequest, "unmarshal json request")
 			}
 
 			rsp, err := fn(ctx, req)
@@ -92,13 +91,13 @@ func makeHandler[Req any, Rsp any](
 					return err
 				}
 				log.Warn("handler failed", slogx.Err(err))
-				return httputil.MakeHTTPError(http.StatusInternalServerError, "internal server error")
+				return httputil.MakeError(http.StatusInternalServerError, "internal server error")
 			}
 
 			rspBytes, err := json.Marshal(rsp)
 			if err != nil {
 				log.Warn("error marshalling json", slogx.Err(err))
-				return httputil.MakeHTTPError(http.StatusInternalServerError, "marshal json response")
+				return httputil.MakeError(http.StatusInternalServerError, "marshal json response")
 			}
 
 			w.Header().Set("Content-Type", "application/json")
@@ -153,17 +152,29 @@ func makeHandler[Req any, Rsp any](
 	}
 }
 
-func RegisterServer(a API, mux *http.ServeMux, o ServerOptions, prefix string, log *slog.Logger) error {
+func make404Handler(log *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, hReq *http.Request) {
+		log.Info("404 not found",
+			slog.String("uri", hReq.RequestURI),
+			slog.String("method", hReq.Method),
+			slog.String("addr", hReq.RemoteAddr),
+		)
+		http.NotFound(w, hReq)
+	}
+}
+
+func HandleServer(log *slog.Logger, mux *http.ServeMux, prefix string, a API, o ServerOptions) error {
 	if o.TokenChecker == nil {
 		return fmt.Errorf("no token checker")
 	}
 	mux.HandleFunc(prefix+"/update",
-		makeHandler(log.With(slog.String("method", "update")), &o, a.Update))
+		makeHandler(log.With(slog.String("handler", "update")), &o, a.Update))
 	mux.HandleFunc(prefix+"/job",
-		makeHandler(log.With(slog.String("method", "job")), &o, a.Job))
+		makeHandler(log.With(slog.String("handler", "job")), &o, a.Job))
 	mux.HandleFunc(prefix+"/hello",
-		makeHandler(log.With(slog.String("method", "hello")), &o, a.Hello))
+		makeHandler(log.With(slog.String("handler", "hello")), &o, a.Hello))
 	mux.HandleFunc(prefix+"/bye",
-		makeHandler(log.With(slog.String("method", "bye")), &o, a.Bye))
+		makeHandler(log.With(slog.String("handler", "bye")), &o, a.Bye))
+	mux.HandleFunc(prefix+"/", make404Handler(log))
 	return nil
 }

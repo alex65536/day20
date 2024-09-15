@@ -14,6 +14,7 @@ import (
 )
 
 type Watcher struct {
+	o        WatcherOptions
 	mu       sync.RWMutex
 	state    *State
 	notifyCh chan<- struct{}
@@ -21,12 +22,14 @@ type Watcher struct {
 }
 
 type WatcherOptions struct {
-	ClockUpdateInterval time.Duration
+	NoBuildPVS bool
+	PassRawPV  bool
+	MaxPVLen   int
 }
 
 func (o *WatcherOptions) FillDefaults() {
-	if o.ClockUpdateInterval == 0 {
-		o.ClockUpdateInterval = 3 * time.Second
+	if o.MaxPVLen == 0 {
+		o.MaxPVLen = 16
 	}
 }
 
@@ -36,6 +39,7 @@ func NewWatcher(o WatcherOptions) (*Watcher, <-chan struct{}) {
 	o.FillDefaults()
 	notifyCh := make(chan struct{}, 1)
 	w := &Watcher{
+		o:        o,
 		state:    NewState(),
 		notifyCh: notifyCh,
 		done:     make(chan struct{}, 1),
@@ -138,9 +142,42 @@ func (w *Watcher) OnGameFinished(game *battle.GameExt, warn battle.Warnings) {
 	}
 }
 
+func buildPVS(b *chess.Board, pv []chess.UCIMove) string {
+	if b == nil || len(pv) == 0 {
+		return ""
+	}
+	g := chess.NewGameWithPosition(b)
+	corrupt := false
+	for _, m := range pv {
+		if err := g.PushUCIMove(m); err != nil {
+			corrupt = true
+			break
+		}
+	}
+	pvs, err := g.Styled(chess.GameStyle{
+		Move:       chess.MoveStyleFancySAN,
+		MoveNumber: chess.MoveNumberStyle{Enabled: true},
+		Outcome:    chess.GameOutcomeHide,
+	})
+	if err != nil {
+		return "???"
+	}
+	if corrupt {
+		if len(pvs) == 0 {
+			pvs += " "
+		}
+		pvs += "???"
+	}
+	return pvs
+}
+
 func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 	cursor := w.startTx()
 	defer w.endTx(cursor)
+
+	if len(status.PV) > w.o.MaxPVLen {
+		status.PV = status.PV[:w.o.MaxPVLen]
+	}
 
 	var pl *Player
 	if color == chess.ColorWhite {
@@ -152,13 +189,17 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 		panic("must not happen")
 	}
 
+	pvChanged := !slices.Equal(status.PV, pl.PV)
 	if status.Score != pl.Score ||
-		!slices.Equal(status.PV, pl.PV) ||
+		pvChanged ||
 		status.Depth != pl.Depth ||
 		status.Nodes != pl.Nodes ||
 		status.NPS != pl.NPS {
 		pl.Score = status.Score
 		pl.PV = status.PV
+		if !w.o.NoBuildPVS && pvChanged {
+			pl.PVS = buildPVS(w.state.Position.Board, pl.PV)
+		}
 		pl.Depth = status.Depth
 		pl.Nodes = status.Nodes
 		pl.NPS = status.NPS
@@ -199,6 +240,14 @@ func (w *Watcher) StateDelta(old Cursor) (*State, Cursor, error) {
 	d, err := w.state.Delta(old)
 	if err != nil {
 		return nil, Cursor{}, fmt.Errorf("delta: %w", err)
+	}
+	if !w.o.PassRawPV {
+		if d.White != nil {
+			d.White.PV = nil
+		}
+		if d.Black != nil {
+			d.Black.PV = nil
+		}
 	}
 	return d, w.state.Cursor(), nil
 }

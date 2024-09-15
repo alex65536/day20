@@ -99,15 +99,15 @@ func init() {
 
 		keeper := roomkeeper.New(log, db{}, scheduler{log: log}, roomkeeper.Options{}, nil)
 		mux := http.NewServeMux()
-		if err := roomapi.RegisterServer(keeper, mux, roomapi.ServerOptions{
+		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerOptions{
 			TokenChecker: func(token string) error {
 				if token != "test" {
 					return fmt.Errorf("bad token")
 				}
 				return nil
 			},
-		}, "", log); err != nil {
-			return fmt.Errorf("register server: %w", err)
+		}); err != nil {
+			return fmt.Errorf("handle server: %w", err)
 		}
 
 		servFin := make(chan struct{})
@@ -145,7 +145,7 @@ func init() {
 					continue
 				}
 			}
-			ch, _, ok := keeper.Subscribe(rooms[0])
+			ch, _, ok := keeper.Subscribe(rooms[0].ID)
 			if !ok {
 				log.Info("cannot subscribe to room")
 				select {
@@ -163,7 +163,7 @@ func init() {
 					return nil
 				case <-ch:
 				}
-				d, _, err := keeper.RoomStateDelta(rooms[0], state.Cursor())
+				d, _, err := keeper.RoomStateDelta(rooms[0].ID, state.Cursor())
 				if err != nil {
 					if roomapi.MatchesError(err, roomapi.ErrNoSuchRoom) {
 						break

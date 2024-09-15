@@ -8,42 +8,42 @@ import (
 	"strings"
 )
 
-type HTTPError struct {
+type Error struct {
 	code    int
 	message string
 	headers map[string][]string
 }
 
-func (e *HTTPError) Error() string {
+func (e *Error) Error() string {
 	return fmt.Sprintf("http error %v: %v", e.code, e.message)
 }
 
-func (e *HTTPError) Code() int { return e.code }
+func (e *Error) Code() int { return e.code }
 
-func MakeHTTPError(code int, message string) error {
-	return &HTTPError{code: code, message: message}
+func MakeError(code int, message string) error {
+	return &Error{code: code, message: message}
 }
 
-func MakeHTTPAuthError(message string, scheme string) error {
-	return &HTTPError{
+func MakeAuthError(message string, scheme string) error {
+	return &Error{
 		code:    http.StatusUnauthorized,
 		message: message,
 		headers: map[string][]string{"WWW-Authenticate": {scheme}},
 	}
 }
 
-func HTTPErrorFromResponse(rsp *http.Response) error {
+func ErrorFromResponse(rsp *http.Response) error {
 	if 200 <= rsp.StatusCode && rsp.StatusCode <= 299 {
 		return nil
 	}
 	var b strings.Builder
 	_, err := io.Copy(&b, rsp.Body)
-	return errors.Join(MakeHTTPError(rsp.StatusCode, b.String()), err)
+	return errors.Join(MakeError(rsp.StatusCode, b.String()), err)
 }
 
 func WriteErrorResponse(err error, w http.ResponseWriter) error {
 	var (
-		httpErr *HTTPError
+		httpErr *Error
 		code    int
 		message string
 	)
@@ -52,11 +52,11 @@ func WriteErrorResponse(err error, w http.ResponseWriter) error {
 		message = httpErr.message
 	} else {
 		code = http.StatusInternalServerError
-		message = err.Error()
+		message = fmt.Sprintf("internal server error: %v", err)
 	}
-	w.Header().Set("Content-Type", "application/text")
-	if h := httpErr.headers; h != nil {
-		for k, vs := range h {
+	w.Header().Set("Content-Type", "text/plain")
+	if httpErr != nil && httpErr.headers != nil {
+		for k, vs := range httpErr.headers {
 			for _, v := range vs {
 				w.Header().Add(k, v)
 			}

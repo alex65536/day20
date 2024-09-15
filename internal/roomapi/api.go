@@ -39,7 +39,7 @@ func IsErrorRetriable(err error) bool {
 	if apiErr := (*Error)(nil); errors.As(err, &apiErr) {
 		return apiErr.Code == ErrLocked
 	}
-	if httpErr := (*httputil.HTTPError)(nil); errors.As(err, &httpErr) {
+	if httpErr := (*httputil.Error)(nil); errors.As(err, &httpErr) {
 		return false
 	}
 	return true

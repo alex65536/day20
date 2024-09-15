@@ -49,7 +49,7 @@ func (c *client) decodeError(rsp *http.Response) error {
 		}
 		return apiErr
 	}
-	return httputil.MakeHTTPError(rsp.StatusCode, b.String())
+	return httputil.MakeError(rsp.StatusCode, b.String())
 }
 
 func doClientRequest[Req any, Rsp any](ctx context.Context, c *client, path string, req *Req) (*Rsp, error) {

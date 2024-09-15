@@ -53,9 +53,14 @@ func NewStatusAborted(reason string) JobStatus {
 	}
 }
 
+type RoomInfo struct {
+	ID   string
+	Name string
+}
+
 type RoomDesc struct {
-	RoomID string
-	Job    *Job
+	Info RoomInfo
+	Job  *Job
 }
 
 func (r RoomDesc) Clone() RoomDesc {

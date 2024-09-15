@@ -1,6 +1,7 @@
 package roomkeeper
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -31,7 +32,7 @@ func newRoomExt(desc RoomDesc) *roomExt {
 	return r
 }
 
-func (r *roomExt) release() {
+func (r *roomExt) Release() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.lastSeen = time.Now()
@@ -73,7 +74,7 @@ func New(
 		rooms:  make(map[string]*roomExt, len(rooms)),
 	}
 	for _, desc := range rooms {
-		k.rooms[desc.RoomID] = newRoomExt(desc)
+		k.rooms[desc.Info.ID] = newRoomExt(desc)
 	}
 	k.wg.Add(1)
 	go k.gc()
@@ -186,7 +187,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	if err != nil {
 		return nil, err
 	}
-	defer room.release()
+	defer room.Release()
 
 	log.Info("updating room")
 
@@ -271,7 +272,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 	if err != nil {
 		return nil, err
 	}
-	defer room.release()
+	defer room.Release()
 
 	log.Info("fetching job for room")
 
@@ -333,8 +334,11 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 			panic("id collision")
 		}
 		desc = RoomDesc{
-			RoomID: roomID,
-			Job:    nil,
+			Info: RoomInfo{
+				ID:   roomID,
+				Name: roomID, // TODO: generate nice room names!
+			},
+			Job: nil,
 		}
 		k.rooms[roomID] = newRoomExt(desc)
 	}()
@@ -372,15 +376,30 @@ func (k *Keeper) Bye(ctx context.Context, req *roomapi.ByeRequest) (*roomapi.Bye
 	return &roomapi.ByeResponse{}, nil
 }
 
-func (k *Keeper) ListRooms() []string {
+func (k *Keeper) ListRooms() []RoomInfo {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	res := make([]string, 0, len(k.rooms))
-	for roomID := range k.rooms {
-		res = append(res, roomID)
+	res := make([]RoomInfo, 0, len(k.rooms))
+	for _, room := range k.rooms {
+		res = append(res, room.room.Desc().Info)
 	}
-	slices.Sort(res)
+	slices.SortFunc(res, func(a, b RoomInfo) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
 	return res
+}
+
+func (k *Keeper) RoomInfo(roomID string) (RoomInfo, error) {
+	k.mu.RLock()
+	defer k.mu.RUnlock()
+	room, ok := k.rooms[roomID]
+	if !ok {
+		return RoomInfo{}, &roomapi.Error{
+			Code:    roomapi.ErrNoSuchRoom,
+			Message: "no such room",
+		}
+	}
+	return room.room.Desc().Info, nil
 }
 
 func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok bool) {

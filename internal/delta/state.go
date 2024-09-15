@@ -121,6 +121,7 @@ type Player struct {
 	Deadline maybe.Maybe[Timestamp]     `json:"deadline"`
 	Score    maybe.Maybe[uci.Score]     `json:"score"`
 	PV       []chess.UCIMove            `json:"pv"`
+	PVS      string                     `json:"pvs"`
 	Depth    int                        `json:"depth"`
 	Nodes    int64                      `json:"nodes"`
 	NPS      int64                      `json:"nps"`

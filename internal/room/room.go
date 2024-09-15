@@ -254,7 +254,7 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 	return updateCh
 }
 
-func (j *job) do(ctx context.Context) error {
+func (j *job) Do(ctx context.Context) error {
 	j.log.Info("starting job")
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -324,7 +324,7 @@ type room struct {
 	roomID string
 }
 
-func (r *room) do(ctx context.Context, log *slog.Logger) error {
+func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 	log = log.With(slog.String("room_id", r.roomID))
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -371,7 +371,7 @@ func (r *room) do(ctx context.Context, log *slog.Logger) error {
 
 		if err := func() error {
 			job := newJob(r.client, r.o, r.cfg, &rsp.Job, r.roomID, log)
-			if err := job.do(ctx); err != nil {
+			if err := job.Do(ctx); err != nil {
 				return fmt.Errorf("do job: %w", err)
 			}
 			return nil
@@ -448,7 +448,7 @@ func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 			cfg:    &cfg,
 			roomID: rsp.RoomID,
 		}
-		if err := r.do(ctx, log); err != nil {
+		if err := r.Do(ctx, log); err != nil {
 			log.Warn("room failed", slogx.Err(err))
 			return fmt.Errorf("run room: %w", err)
 		}
