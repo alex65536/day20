@@ -58,8 +58,8 @@ var _ error = (*Error)(nil)
 
 type UpdateRequest struct {
 	RoomID    string          `json:"room_id"`
-	From      delta.Cursor    `json:"from"`
-	Delta     *delta.State    `json:"delta"`
+	From      delta.JobCursor `json:"from"`
+	Delta     *delta.JobState `json:"delta"`
 	Timestamp delta.Timestamp `json:"ts"`
 	Done      bool            `json:"done,omitempty"`
 	Error     string          `json:"error,omitempty"`

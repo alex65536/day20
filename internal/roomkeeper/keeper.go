@@ -201,7 +201,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	if req.Done && req.Error != "" {
 		log.Warn("received error update from client", slog.String("err", req.Error))
 	}
-	status, state, updErr := func() (JobStatus, *delta.State, error) {
+	status, state, updErr := func() (JobStatus, *delta.JobState, error) {
 		if !k.sched.IsContestRunning(job.ContestID) {
 			room.room.SetJob(nil)
 			return NewStatusAborted("contest canceled"), nil, &roomapi.Error{
@@ -413,19 +413,19 @@ func (k *Keeper) Subscribe(roomID string) (ch <-chan struct{}, cancel func(), ok
 	return ch, cancel, true
 }
 
-func (k *Keeper) RoomStateDelta(roomID string, old delta.Cursor) (*delta.State, delta.Cursor, error) {
+func (k *Keeper) RoomStateDelta(roomID string, old delta.RoomCursor) (*delta.RoomState, delta.RoomCursor, error) {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
 	room, ok := k.rooms[roomID]
 	if !ok {
-		return nil, delta.Cursor{}, &roomapi.Error{
+		return nil, delta.RoomCursor{}, &roomapi.Error{
 			Code:    roomapi.ErrNoSuchRoom,
 			Message: "no such room",
 		}
 	}
 	d, cursor, err := room.room.StateDelta(old)
 	if err != nil {
-		return nil, delta.Cursor{}, fmt.Errorf("room state: %w", err)
+		return nil, delta.RoomCursor{}, fmt.Errorf("room state: %w", err)
 	}
 	return d, cursor, nil
 }

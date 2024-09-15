@@ -12,7 +12,7 @@ import (
 type room struct {
 	mu      sync.RWMutex
 	desc    RoomDesc
-	state   *delta.State
+	state   *delta.RoomState
 	subs    map[string]chan struct{}
 	stopped bool
 }
@@ -20,14 +20,23 @@ type room struct {
 func newRoom(desc RoomDesc) *room {
 	r := &room{
 		desc:    desc,
+		state:   delta.NewRoomState(),
 		subs:    make(map[string]chan struct{}),
-		state:   nil,
 		stopped: false,
 	}
-	if desc.Job != nil {
-		r.state = delta.NewState()
-	}
+	r.onJobReset()
 	return r
+}
+
+func (r *room) onJobReset() {
+	job := r.desc.Job
+	if job == nil {
+		r.state.JobID = ""
+		r.state.State = nil
+	} else {
+		r.state.JobID = job.Desc.ID
+		r.state.State = delta.NewJobState()
+	}
 }
 
 func (r *room) Subscribe() (<-chan struct{}, func()) {
@@ -87,29 +96,20 @@ func (r *room) SetJob(job *Job) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.desc.Job = job
-	r.state = nil
-	if job != nil {
-		r.state = delta.NewState()
-	}
+	r.onJobReset()
 }
 
-func (r *room) StateDelta(old delta.Cursor) (*delta.State, delta.Cursor, error) {
+func (r *room) StateDelta(old delta.RoomCursor) (*delta.RoomState, delta.RoomCursor, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.desc.Job == nil {
-		return nil, delta.Cursor{}, &roomapi.Error{
-			Code:    roomapi.ErrNoJobRunning,
-			Message: "no job running",
-		}
-	}
 	d, err := r.state.Delta(old)
 	if err != nil {
-		return nil, delta.Cursor{}, fmt.Errorf("compute delta: %w", err)
+		return nil, delta.RoomCursor{}, fmt.Errorf("compute delta: %w", err)
 	}
 	return d, r.state.Cursor(), nil
 }
 
-func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, error) {
+func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, error) {
 	defer r.onUpdate()
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -125,7 +125,7 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 	defer func() {
 		if status.Kind != JobRunning {
 			r.desc.Job = nil
-			r.state = nil
+			r.onJobReset()
 		}
 	}()
 
@@ -138,9 +138,9 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 	}
 
 	if req.Delta != nil {
-		if r.state.Cursor() != req.From {
-			if req.From == (delta.Cursor{}) {
-				r.state = delta.NewState()
+		if r.state.State.Cursor() != req.From {
+			if req.From == (delta.JobCursor{}) {
+				r.state.State = delta.NewJobState()
 			} else {
 				status = NewStatusRunning()
 				return status, nil, &roomapi.Error{
@@ -149,14 +149,14 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.State, erro
 				}
 			}
 		}
-		if err := r.state.ApplyDelta(req.Delta); err != nil {
+		if err := r.state.State.ApplyDelta(req.Delta); err != nil {
 			status = NewStatusAborted("malformed state delta")
 			return status, nil, fmt.Errorf("apply delta: %w", err)
 		}
 	}
 
 	if status.Kind == JobSucceeded {
-		return status, r.state, nil
+		return status, r.state.State.Clone(), nil
 	}
 	return status, nil, nil
 }
@@ -173,5 +173,5 @@ func (r *room) Stop() {
 	}
 	r.subs = nil
 	r.desc.Job = nil
-	r.state = nil
+	r.onJobReset()
 }

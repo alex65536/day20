@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"time"
 
 	"github.com/alex65536/day20/internal/battle"
@@ -42,16 +43,28 @@ func (db) AddGame(_ context.Context, _ string, game *battle.GameExt) error {
 }
 
 type scheduler struct {
-	log *slog.Logger
+	log   *slog.Logger
+	first *atomic.Bool
 }
 
-func (scheduler) IsContestRunning(contestID string) bool {
+func newScheduler(log *slog.Logger) *scheduler {
+	return &scheduler{
+		log:   log,
+		first: new(atomic.Bool),
+	}
+}
+
+func (s *scheduler) IsContestRunning(contestID string) bool {
 	return true
 }
 
 var globalControl clock.Control
 
-func (scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
+func (s *scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
+	if s.first.Swap(true) {
+		s.log.Info("sleeping before new job")
+		time.Sleep(3 * time.Second)
+	}
 	return &roomkeeper.Job{
 		ContestID: "contest0",
 		Desc: roomapi.Job{
@@ -81,7 +94,7 @@ func init() {
 		"endpoint", "e", "127.0.0.1:8080",
 		"server endpoint")
 	control := p.StringP(
-		"time-control", "C", "40/60",
+		"time-control", "C", "40/20",
 		"time control")
 
 	serverCmd.RunE = func(cmd *cobra.Command, _args []string) error {
@@ -97,7 +110,7 @@ func init() {
 		// TODO: write neat colorful logs
 		log := slog.Default()
 
-		keeper := roomkeeper.New(log, db{}, scheduler{log: log}, roomkeeper.Options{}, nil)
+		keeper := roomkeeper.New(log, db{}, newScheduler(log), roomkeeper.Options{}, nil)
 		mux := http.NewServeMux()
 		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerOptions{
 			TokenChecker: func(token string) error {
@@ -156,7 +169,7 @@ func init() {
 				}
 			}
 			log.Info("successfully subscribed to room")
-			state := delta.NewState()
+			state := delta.NewRoomState()
 			for {
 				select {
 				case <-ctx.Done():
@@ -169,7 +182,7 @@ func init() {
 						break
 					}
 					if roomapi.MatchesError(err, roomapi.ErrNoJobRunning) {
-						state = delta.NewState()
+						state = delta.NewRoomState()
 						continue
 					}
 					log.Warn("error getting state", slogx.Err(err))
@@ -186,7 +199,9 @@ func init() {
 				}
 				now := delta.NowTimestamp()
 				fmt.Printf("got delta: %v\n", string(ds))
-				fmt.Printf("new clock: %v - %v\n", state.White.ClockFrom(now).Get(), state.Black.ClockFrom(now).Get())
+				if state.State != nil {
+					fmt.Printf("new clock: %v - %v\n", state.State.White.ClockFrom(now).Get(), state.State.Black.ClockFrom(now).Get())
+				}
 			}
 		}
 	}

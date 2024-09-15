@@ -113,8 +113,8 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 func (j *job) prefail(ctx context.Context, failErr error) error {
 	return j.update(ctx, &roomapi.UpdateRequest{
 		RoomID: j.roomID,
-		From:   delta.Cursor{},
-		Delta:  &delta.State{},
+		From:   delta.JobCursor{},
+		Delta:  &delta.JobState{},
 		Done:   true,
 		Error:  failErr.Error(),
 	})
@@ -201,10 +201,10 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 		defer onFinish()
 
 		updateCh <- func() error {
-			cursor := delta.Cursor{}
+			cursor := delta.JobCursor{}
 
 			doSend := func(done bool) error {
-				var emptyCursor delta.Cursor
+				var emptyCursor delta.JobCursor
 				for {
 					dd, newCursor, err := watcher.StateDelta(cursor)
 					if err != nil {
@@ -294,11 +294,11 @@ func (j *job) Do(ctx context.Context) error {
 
 	{
 		// Validation.
-		stateDelta, _, err := watcher.StateDelta(delta.Cursor{})
+		stateDelta, _, err := watcher.StateDelta(delta.JobCursor{})
 		if err != nil {
 			panic(fmt.Sprintf("watcher state delta: %v", err))
 		}
-		allState := delta.NewState()
+		allState := delta.NewJobState()
 		if err := allState.ApplyDelta(stateDelta); err != nil {
 			panic(fmt.Sprintf("apply state delta: %v", err))
 		}

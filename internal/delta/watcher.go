@@ -16,7 +16,7 @@ import (
 type Watcher struct {
 	o        WatcherOptions
 	mu       sync.RWMutex
-	state    *State
+	state    *JobState
 	notifyCh chan<- struct{}
 	done     chan struct{}
 }
@@ -40,19 +40,19 @@ func NewWatcher(o WatcherOptions) (*Watcher, <-chan struct{}) {
 	notifyCh := make(chan struct{}, 1)
 	w := &Watcher{
 		o:        o,
-		state:    NewState(),
+		state:    NewJobState(),
 		notifyCh: notifyCh,
 		done:     make(chan struct{}, 1),
 	}
 	return w, notifyCh
 }
 
-func (w *Watcher) startTx() Cursor {
+func (w *Watcher) startTx() JobCursor {
 	w.mu.Lock()
 	return w.state.Cursor()
 }
 
-func (w *Watcher) endTx(c Cursor) {
+func (w *Watcher) endTx(c JobCursor) {
 	newC := w.state.Cursor()
 	w.mu.Unlock()
 	if c != newC {
@@ -234,12 +234,12 @@ func (w *Watcher) OnGameUpdated(game *battle.GameExt, clk maybe.Maybe[clock.Cloc
 	}
 }
 
-func (w *Watcher) StateDelta(old Cursor) (*State, Cursor, error) {
+func (w *Watcher) StateDelta(old JobCursor) (*JobState, JobCursor, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	d, err := w.state.Delta(old)
 	if err != nil {
-		return nil, Cursor{}, fmt.Errorf("delta: %w", err)
+		return nil, JobCursor{}, fmt.Errorf("delta: %w", err)
 	}
 	if !w.o.PassRawPV {
 		if d.White != nil {

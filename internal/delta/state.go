@@ -21,7 +21,17 @@ type Info struct {
 	FixedTime   maybe.Maybe[time.Duration] `json:"fixed_time"`
 }
 
+func (i *Info) PlayerInfo(col chess.Color) string {
+	if col == chess.ColorWhite {
+		return i.WhiteName
+	}
+	return i.BlackName
+}
+
 func (i *Info) Clone() *Info {
+	if i == nil {
+		return nil
+	}
 	res := *i
 	res.TimeControl = util.CloneMaybe(res.TimeControl)
 	return &res
@@ -35,8 +45,13 @@ type Position struct {
 }
 
 func (p *Position) Clone() *Position {
+	if p == nil {
+		return nil
+	}
 	res := *p
-	res.Board = res.Board.Clone()
+	if res.Board != nil {
+		res.Board = res.Board.Clone()
+	}
 	return &res
 }
 
@@ -47,6 +62,9 @@ type Moves struct {
 }
 
 func (m *Moves) Clone() *Moves {
+	if m == nil {
+		return nil
+	}
 	res := *m
 	res.Moves = slices.Clone(res.Moves)
 	res.Scores = slices.Clone(res.Scores)
@@ -86,6 +104,9 @@ type Warnings struct {
 }
 
 func (w *Warnings) Clone() *Warnings {
+	if w == nil {
+		return nil
+	}
 	res := *w
 	res.Warn = slices.Clone(res.Warn)
 	return &res
@@ -136,6 +157,9 @@ func (p *Player) ClockFrom(nowTs Timestamp) maybe.Maybe[time.Duration] {
 }
 
 func (p *Player) Clone() *Player {
+	if p == nil {
+		return nil
+	}
 	res := *p
 	res.PV = slices.Clone(res.PV)
 	return &res
@@ -147,7 +171,7 @@ func (p *Player) FixTimestamps(diff TimestampDiff) {
 	}
 }
 
-type Cursor struct {
+type JobCursor struct {
 	HasInfo  bool  `json:"has_info"`
 	Warnings int64 `json:"warnings"`
 	Position int64 `json:"position"`
@@ -164,7 +188,7 @@ func b2i(b bool) int {
 	}
 }
 
-func (c Cursor) StrictLessEq(d Cursor) bool {
+func (c JobCursor) StrictLessEq(d JobCursor) bool {
 	return b2i(c.HasInfo) <= b2i(d.HasInfo) &&
 		c.Warnings <= d.Warnings &&
 		c.Position <= d.Position &&
@@ -173,7 +197,7 @@ func (c Cursor) StrictLessEq(d Cursor) bool {
 		c.Black <= d.Black
 }
 
-type State struct {
+type JobState struct {
 	Info     *Info     `json:"info,omitempty"`
 	Warnings *Warnings `json:"warnings,omitempty"`
 	Position *Position `json:"position,omitempty"`
@@ -182,8 +206,8 @@ type State struct {
 	Black    *Player   `json:"black,omitempty"`
 }
 
-func NewState() *State {
-	return &State{
+func NewJobState() *JobState {
+	return &JobState{
 		Info:     nil,
 		Warnings: &Warnings{},
 		Position: &Position{},
@@ -193,7 +217,25 @@ func NewState() *State {
 	}
 }
 
-func (s *State) FixTimestamps(diff TimestampDiff) {
+func (s *JobState) Player(col chess.Color) *Player {
+	if col == chess.ColorWhite {
+		return s.White
+	}
+	return s.Black
+}
+
+func (s *JobState) ValidateFull() error {
+	if s.Warnings == nil ||
+		s.Position == nil ||
+		s.Moves == nil ||
+		s.White == nil ||
+		s.Black == nil {
+		return fmt.Errorf("state incomplete")
+	}
+	return nil
+}
+
+func (s *JobState) FixTimestamps(diff TimestampDiff) {
 	if s.White != nil {
 		s.White.FixTimestamps(diff)
 	}
@@ -202,8 +244,8 @@ func (s *State) FixTimestamps(diff TimestampDiff) {
 	}
 }
 
-func (s *State) Cursor() Cursor {
-	return Cursor{
+func (s *JobState) Cursor() JobCursor {
+	return JobCursor{
 		HasInfo:  s.Info != nil,
 		Warnings: s.Warnings.Version,
 		Position: s.Position.Version,
@@ -213,11 +255,25 @@ func (s *State) Cursor() Cursor {
 	}
 }
 
-func (s *State) Delta(old Cursor) (*State, error) {
+func (s *JobState) Clone() *JobState {
+	if s == nil {
+		return nil
+	}
+	return &JobState{
+		Info:     s.Info.Clone(),
+		Warnings: s.Warnings.Clone(),
+		Position: s.Position.Clone(),
+		Moves:    s.Moves.Clone(),
+		White:    s.White.Clone(),
+		Black:    s.Black.Clone(),
+	}
+}
+
+func (s *JobState) Delta(old JobCursor) (*JobState, error) {
 	if !old.StrictLessEq(s.Cursor()) {
 		return nil, fmt.Errorf("old cursor is not a parent of the current one")
 	}
-	res := &State{}
+	res := &JobState{}
 	if s.Info != nil && !old.HasInfo {
 		res.Info = s.Info.Clone()
 	}
@@ -239,7 +295,7 @@ func (s *State) Delta(old Cursor) (*State, error) {
 	return res, nil
 }
 
-func (s *State) ApplyDelta(d *State) error {
+func (s *JobState) ApplyDelta(d *JobState) error {
 	if d.Info != nil {
 		if s.Info != nil {
 			return fmt.Errorf("info already present")
@@ -277,9 +333,9 @@ func (s *State) ApplyDelta(d *State) error {
 	return nil
 }
 
-func (s *State) GameExt() (*battle.GameExt, error) {
-	if s.Info == nil || s.Position == nil || s.Moves == nil {
-		return nil, fmt.Errorf("state not initialized or is delta")
+func (s *JobState) GameExt() (*battle.GameExt, error) {
+	if err := s.ValidateFull(); err != nil {
+		return nil, fmt.Errorf("validate: %w", err)
 	}
 
 	board, err := chess.NewBoard(s.Info.StartPos)
@@ -322,4 +378,119 @@ func (s *State) GameExt() (*battle.GameExt, error) {
 		TimeControl: util.CloneMaybe(s.Info.TimeControl),
 		FixedTime:   s.Info.FixedTime,
 	}, nil
+}
+
+type RoomCursor struct {
+	JobID string    `json:"job_id"`
+	State JobCursor `json:"s"`
+}
+
+type RoomState struct {
+	JobID string    `json:"job_id"`
+	State *JobState `json:"s"`
+}
+
+func NewRoomState() *RoomState {
+	return &RoomState{
+		JobID: "",
+		State: nil,
+	}
+}
+func (s *RoomState) Cursor() RoomCursor {
+	var state JobCursor
+	if s.State != nil {
+		state = s.State.Cursor()
+	}
+	return RoomCursor{
+		JobID: s.JobID,
+		State: state,
+	}
+}
+
+func (s *RoomState) Clone() *RoomState {
+	if s == nil {
+		return nil
+	}
+	return &RoomState{
+		JobID: s.JobID,
+		State: s.State.Clone(),
+	}
+}
+
+func (s *RoomState) doValidate() error {
+	if s.State == nil && s.JobID != "" {
+		return fmt.Errorf("has job but empty state")
+	}
+	if s.State != nil && s.JobID == "" {
+		return fmt.Errorf("no job but non-empty state")
+	}
+	return nil
+}
+
+func (s *RoomState) ValidateFull() error {
+	if err := s.doValidate(); err != nil {
+		return err
+	}
+	if s.State != nil {
+		if err := s.State.ValidateFull(); err != nil {
+			return fmt.Errorf("inner state: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *RoomState) ValidateDelta() error {
+	return s.doValidate()
+}
+
+func (s *RoomState) Delta(old RoomCursor) (*RoomState, error) {
+	if err := s.ValidateFull(); err != nil {
+		return nil, fmt.Errorf("invalid state: %w", err)
+	}
+	if s.JobID != old.JobID {
+		return &RoomState{
+			JobID: s.JobID,
+			State: s.State.Clone(),
+		}, nil
+	}
+	if s.State == nil {
+		return &RoomState{
+			JobID: s.JobID,
+			State: nil,
+		}, nil
+	}
+	d, err := s.State.Delta(old.State)
+	if err != nil {
+		return nil, fmt.Errorf("job delta: %w", err)
+	}
+	return &RoomState{
+		JobID: s.JobID,
+		State: d,
+	}, nil
+}
+
+func (s *RoomState) ApplyDelta(d *RoomState) error {
+	if err := s.ValidateFull(); err != nil {
+		return fmt.Errorf("invalid state: %w", err)
+	}
+	if err := d.ValidateDelta(); err != nil {
+		return fmt.Errorf("invalid delta: %w", err)
+	}
+	if s.JobID != d.JobID {
+		if d.State != nil {
+			if err := d.State.ValidateFull(); err != nil {
+				return fmt.Errorf("invalid inner state: %w", err)
+			}
+		}
+		s.JobID = d.JobID
+		s.State = d.State.Clone()
+		return nil
+	}
+	if s.State == nil {
+		return nil
+	}
+	if err := s.State.ApplyDelta(d.State); err != nil {
+		return fmt.Errorf("apply inner delta: %w", err)
+	}
+	return nil
 }
