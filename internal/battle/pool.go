@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/id"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/uci"
 	"github.com/alex65536/go-chess/util/maybe"
@@ -32,7 +32,8 @@ type EnginePool interface {
 }
 
 type EnginePoolOptions struct {
-	Name          string
+	ShortName     string
+	ExeName       string
 	Args          []string
 	Options       map[string]uci.OptValue
 	EngineOptions uci.EngineOptions
@@ -55,7 +56,7 @@ func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (
 	o.FillDefaults()
 
 	if !slogx.IsDiscard(log) {
-		log = log.With(slog.String("pool_id", randutil.InsecureID()))
+		log = log.With(slog.String("pool_id", id.ID()))
 	}
 
 	poolCtx, cancel := context.WithCancel(context.Background())
@@ -76,7 +77,11 @@ func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (
 	if !ok {
 		panic("must not happen")
 	}
-	pool.name = fmt.Sprintf("%v at %v", info.Name, o.Name)
+	name := o.ShortName
+	if name == "" {
+		name = o.ExeName
+	}
+	pool.name = fmt.Sprintf("%v at %v", info.Name, name)
 	pool.ReleaseEngine(e)
 
 	return pool, err
@@ -109,13 +114,13 @@ func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
 	logger := uci.NewNullLogger()
 	if !slogx.IsDiscard(p.log) {
 		logger = &logAdapter{
-			log:   p.log.With(slog.String("engine_id", randutil.InsecureID())),
+			log:   p.log.With(slog.String("engine_id", id.ID())),
 			level: slog.LevelInfo,
 		}
 	}
 
 	e, err := uci.NewEasyEngine(p.ctx, uci.EasyEngineOptions{
-		Name:            p.o.Name,
+		Name:            p.o.ExeName,
 		Args:            p.o.Args,
 		SysProcAttr:     engineSysProcAttr(),
 		Options:         p.o.EngineOptions,
