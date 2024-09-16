@@ -21,7 +21,7 @@
       htmx.onLoad(function(content) {
         var elt = content.querySelector('#fen-data')
         if (elt) {
-          mainBoard.position(elt.innerHTML)
+          mainBoard.position(elt.textContent)
         }
       })
     </script>

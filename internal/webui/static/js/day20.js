@@ -17,7 +17,7 @@ function newClock(id) {
     var s = ts % 60
     var m = Math.floor(ts / 60) % 60
     var h = Math.floor(ts / 3600)
-    target.innerHTML = sgn + h + ':' + pad(m) + ':' + pad(s)
+    target.textContent = sgn + h + ':' + pad(m) + ':' + pad(s)
   }
 
   var timer, now
