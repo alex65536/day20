@@ -192,7 +192,7 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 	pvChanged := !slices.Equal(status.PV, pl.PV)
 	if status.Score != pl.Score ||
 		pvChanged ||
-		status.Depth != pl.Depth ||
+		int64(status.Depth) != pl.Depth ||
 		status.Nodes != pl.Nodes ||
 		status.NPS != pl.NPS {
 		pl.Score = status.Score
@@ -200,7 +200,7 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 		if !w.o.NoBuildPVS && pvChanged {
 			pl.PVS = buildPVS(w.state.Position.Board, pl.PV)
 		}
-		pl.Depth = status.Depth
+		pl.Depth = int64(status.Depth)
 		pl.Nodes = status.Nodes
 		pl.NPS = status.NPS
 		pl.Version++

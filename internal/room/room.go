@@ -429,7 +429,7 @@ func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 			o.RequestTimeout,
 			client.Hello,
 			&roomapi.HelloRequest{
-				SupportedProtoVersions: []int{roomapi.ProtoVersion},
+				SupportedProtoVersions: []int32{roomapi.ProtoVersion},
 			},
 		)
 		if err != nil {

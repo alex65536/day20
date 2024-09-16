@@ -143,7 +143,7 @@ type Player struct {
 	Score    maybe.Maybe[uci.Score]     `json:"score"`
 	PV       []chess.UCIMove            `json:"pv"`
 	PVS      string                     `json:"pvs"`
-	Depth    int                        `json:"depth"`
+	Depth    int64                      `json:"depth"`
 	Nodes    int64                      `json:"nodes"`
 	NPS      int64                      `json:"nps"`
 	Version  int64                      `json:"v"`

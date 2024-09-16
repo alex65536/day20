@@ -124,12 +124,12 @@ type JobResponse struct {
 }
 
 type HelloRequest struct {
-	SupportedProtoVersions []int `json:"supported_proto_versions"`
+	SupportedProtoVersions []int32 `json:"supported_proto_versions"`
 }
 
 type HelloResponse struct {
 	RoomID       string `json:"room_id"`
-	ProtoVersion int    `json:"proto_version"`
+	ProtoVersion int32  `json:"proto_version"`
 }
 
 type ByeRequest struct {
