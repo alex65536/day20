@@ -49,9 +49,7 @@ func (p *Position) Clone() *Position {
 		return nil
 	}
 	res := *p
-	if res.Board != nil {
-		res.Board = res.Board.Clone()
-	}
+	res.Board = res.Board.Clone()
 	return &res
 }
 
