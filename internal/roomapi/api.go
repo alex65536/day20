@@ -87,28 +87,12 @@ type Job struct {
 	Black          JobEngine       `json:"black"`
 }
 
-func cloneTrivial[T any](a *T) *T {
-	if a == nil {
-		return nil
-	}
-	b := *a
-	return &b
-}
-
-func clone[T util.Clonable[T]](a *T) *T {
-	if a == nil {
-		return nil
-	}
-	b := (*a).Clone()
-	return &b
-}
-
 func (j Job) Clone() Job {
-	j.FixedTime = cloneTrivial(j.FixedTime)
-	j.TimeControl = clone(j.TimeControl)
-	j.StartBoard = cloneTrivial(j.StartBoard)
+	j.FixedTime = util.CloneTrivialPtr(j.FixedTime)
+	j.TimeControl = util.ClonePtr(j.TimeControl)
+	j.StartBoard = util.CloneTrivialPtr(j.StartBoard)
 	j.StartMoves = slices.Clone(j.StartMoves)
-	j.TimeMargin = cloneTrivial(j.TimeMargin)
+	j.TimeMargin = util.CloneTrivialPtr(j.TimeMargin)
 	j.White = j.White.Clone()
 	j.Black = j.Black.Clone()
 	return j

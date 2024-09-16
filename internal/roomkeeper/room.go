@@ -12,16 +12,18 @@ import (
 )
 
 type room struct {
+	info    RoomInfo
 	mu      sync.RWMutex
-	desc    RoomDesc
+	data    RoomData
 	state   *delta.RoomState
 	subs    map[string]chan struct{}
 	stopped bool
 }
 
-func newRoom(desc RoomDesc) *room {
+func newRoom(data RoomFullData) *room {
 	r := &room{
-		desc:    desc,
+		info:    data.Info,
+		data:    data.Data,
 		state:   delta.NewRoomState(),
 		subs:    make(map[string]chan struct{}),
 		stopped: false,
@@ -31,7 +33,7 @@ func newRoom(desc RoomDesc) *room {
 }
 
 func (r *room) onJobReset() {
-	job := r.desc.Job
+	job := r.data.Job
 	if job == nil {
 		r.state.JobID = ""
 		r.state.State = nil
@@ -94,29 +96,24 @@ func (r *room) GameExt() (*battle.GameExt, error) {
 	return g, nil
 }
 
-func (r *room) Info() RoomInfo {
-	return r.desc.Info
-}
+func (r *room) Info() RoomInfo { return r.info }
+func (r *room) ID() string     { return r.info.ID }
 
-func (r *room) ID() string {
-	return r.Info().ID
-}
-
-func (r *room) Desc() RoomDesc {
+func (r *room) Data() RoomData {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.desc
+	return r.data.Clone()
 }
 
 func (r *room) Job() *Job {
-	return r.desc.Job
+	return r.Data().Job
 }
 
 func (r *room) SetJob(job *Job) {
 	defer r.onUpdate()
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.desc.Job = job
+	r.data.Job = job
 	r.onJobReset()
 }
 
@@ -135,7 +132,7 @@ func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.desc.Job == nil {
+	if r.data.Job == nil {
 		return NewStatusUnknown(), nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "no job running",
@@ -145,7 +142,7 @@ func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, 
 	status := NewStatusRunning()
 	defer func() {
 		if status.Kind.IsFinished() {
-			r.desc.Job = nil
+			r.data.Job = nil
 			r.onJobReset()
 		}
 	}()
@@ -186,7 +183,7 @@ func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, 
 func (r *room) Stop(log *slog.Logger) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.desc.Job != nil {
+	if r.data.Job != nil {
 		log.Error("stopping room with unfinished job", slog.String("room_id", r.ID()))
 	}
 	if r.stopped {
@@ -197,6 +194,6 @@ func (r *room) Stop(log *slog.Logger) {
 		close(sub)
 	}
 	r.subs = nil
-	r.desc.Job = nil
+	r.data.Job = nil
 	r.onJobReset()
 }

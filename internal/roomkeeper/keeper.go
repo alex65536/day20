@@ -25,9 +25,9 @@ type roomExt struct {
 	lastSeen time.Time
 }
 
-func newRoomExt(desc RoomDesc) *roomExt {
+func newRoomExt(data RoomFullData) *roomExt {
 	r := &roomExt{
-		room:     newRoom(desc),
+		room:     newRoom(data),
 		locked:   false,
 		lastSeen: time.Now(),
 	}
@@ -58,13 +58,17 @@ type Keeper struct {
 var _ roomapi.API = (*Keeper)(nil)
 
 func New(
+	ctx context.Context,
 	log *slog.Logger,
 	db DB,
 	sched Scheduler,
 	opts Options,
-	rooms []RoomDesc,
-) *Keeper {
+) (*Keeper, error) {
 	opts.FillDefaults()
+	rooms, err := db.ListActiveRooms(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active rooms: %w", err)
+	}
 	gctx, cancel := context.WithCancel(context.Background())
 	k := &Keeper{
 		db:     db,
@@ -80,7 +84,7 @@ func New(
 	}
 	k.wg.Add(1)
 	go k.gc()
-	return k
+	return k, nil
 }
 
 func (k *Keeper) gc() {
@@ -254,7 +258,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 		k.sched.OnJobFinished(job.Desc.ID, status, game)
 	}
 
-	if err := k.db.UpdateRoom(ctx, room.room.Desc().Clone()); err != nil {
+	if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.Data()); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
 		return nil, fmt.Errorf("update room in db: %w", err)
 	}
@@ -311,7 +315,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 	k.abortRoomJob(room, "job lost by room")
 	room.room.SetJob(job)
 
-	if err := k.db.UpdateRoom(ctx, room.room.Desc().Clone()); err != nil {
+	if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.Data()); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
 		return nil, fmt.Errorf("update room in db: %w", err)
 	}
@@ -333,7 +337,7 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 
 	var (
 		roomID string
-		desc   RoomDesc
+		data   RoomFullData
 	)
 	func() {
 		k.mu.Lock()
@@ -342,22 +346,24 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 		if _, ok := k.rooms[roomID]; ok {
 			panic("id collision")
 		}
-		desc = RoomDesc{
+		data = RoomFullData{
 			Info: RoomInfo{
 				ID:   roomID,
 				Name: roomID, // TODO: generate nice room names!
 			},
-			Job: nil,
+			Data: RoomData{
+				Job: nil,
+			},
 		}
-		k.rooms[roomID] = newRoomExt(desc)
+		k.rooms[roomID] = newRoomExt(data)
 	}()
 
 	log = log.With(slog.String("room_id", roomID))
 	log.Info("created room")
 
-	if err := k.db.UpdateRoom(ctx, desc); err != nil {
-		log.Error("cannot update room in db", slogx.Err(err))
-		return nil, fmt.Errorf("update room in db: %w", err)
+	if err := k.db.CreateRoom(ctx, data.Info); err != nil {
+		log.Error("cannot create room in db", slogx.Err(err))
+		return nil, fmt.Errorf("create room in db: %w", err)
 	}
 
 	return &roomapi.HelloResponse{

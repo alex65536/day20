@@ -29,8 +29,10 @@ var serverCmd = &cobra.Command{
 
 type db struct{}
 
-func (db) UpdateRoom(context.Context, roomkeeper.RoomDesc) error { return nil }
-func (db) DeleteRoom(context.Context, string) error              { return nil }
+func (db) ListActiveRooms(context.Context) ([]roomkeeper.RoomFullData, error) { return nil, nil }
+func (db) CreateRoom(context.Context, roomkeeper.RoomInfo) error              { return nil }
+func (db) UpdateRoom(context.Context, string, roomkeeper.RoomData) error      { return nil }
+func (db) DeleteRoom(context.Context, string) error                           { return nil }
 
 type scheduler struct {
 	log   *slog.Logger
@@ -108,7 +110,10 @@ func init() {
 		// TODO: write neat colorful logs
 		log := slog.Default()
 
-		keeper := roomkeeper.New(log, db{}, newScheduler(log), roomkeeper.Options{}, nil)
+		keeper, err := roomkeeper.New(ctx, log, db{}, newScheduler(log), roomkeeper.Options{})
+		if err != nil {
+			return fmt.Errorf("create roomkeeper: %w", err)
+		}
 		mux := http.NewServeMux()
 		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerOptions{
 			TokenChecker: func(token string) error {

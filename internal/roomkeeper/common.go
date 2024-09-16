@@ -7,6 +7,7 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
+	"github.com/alex65536/day20/internal/util"
 )
 
 var ErrGameNotReady = errors.New("game not ready")
@@ -69,21 +70,24 @@ type RoomInfo struct {
 	Name string
 }
 
-type RoomDesc struct {
-	Info RoomInfo
-	Job  *Job
+type RoomData struct {
+	Job *Job
 }
 
-func (r RoomDesc) Clone() RoomDesc {
-	if r.Job != nil {
-		j := *r.Job
-		r.Job = &j
-	}
-	return r
+func (d RoomData) Clone() RoomData {
+	d.Job = util.ClonePtr(d.Job)
+	return d
+}
+
+type RoomFullData struct {
+	Info RoomInfo
+	Data RoomData
 }
 
 type DB interface {
-	UpdateRoom(ctx context.Context, room RoomDesc) error
+	ListActiveRooms(ctx context.Context) ([]RoomFullData, error)
+	CreateRoom(ctx context.Context, info RoomInfo) error
+	UpdateRoom(ctx context.Context, roomID string, data RoomData) error
 	DeleteRoom(ctx context.Context, roomID string) error
 }
 
