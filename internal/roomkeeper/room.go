@@ -2,6 +2,7 @@ package roomkeeper
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/alex65536/day20/internal/battle"
@@ -129,13 +130,13 @@ func (r *room) StateDelta(old delta.RoomCursor) (*delta.RoomState, delta.RoomCur
 	return d, r.state.Cursor(), nil
 }
 
-func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, error) {
+func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, error) {
 	defer r.onUpdate()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.desc.Job == nil {
-		return NewStatusAborted("no job running"), nil, &roomapi.Error{
+		return NewStatusUnknown(), nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "no job running",
 		}
@@ -143,7 +144,7 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, e
 
 	status := NewStatusRunning()
 	defer func() {
-		if status.Kind != JobRunning {
+		if status.Kind.IsFinished() {
 			r.desc.Job = nil
 			r.onJobReset()
 		}
@@ -153,6 +154,7 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, e
 		if req.Error == "" {
 			status = NewStatusSucceeded()
 		} else {
+			log.Warn("received error update", slog.String("err", req.Error))
 			status = NewStatusAborted(fmt.Sprintf("error: %v", req.Error))
 		}
 	}
@@ -171,19 +173,22 @@ func (r *room) Update(req *roomapi.UpdateRequest) (JobStatus, *delta.JobState, e
 		}
 		if err := r.state.State.ApplyDelta(req.Delta); err != nil {
 			status = NewStatusAborted("malformed state delta")
-			return status, nil, fmt.Errorf("apply delta: %w", err)
+			return status, r.state.State.Clone(), fmt.Errorf("apply delta: %w", err)
 		}
 	}
 
-	if status.Kind == JobSucceeded {
-		return status, r.state.State.Clone(), nil
+	if !status.Kind.IsFinished() {
+		return status, nil, nil
 	}
-	return status, nil, nil
+	return status, r.state.State.Clone(), nil
 }
 
-func (r *room) Stop() {
+func (r *room) Stop(log *slog.Logger) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.desc.Job != nil {
+		log.Error("stopping room with unfinished job", slog.String("room_id", r.ID()))
+	}
 	if r.stopped {
 		return
 	}

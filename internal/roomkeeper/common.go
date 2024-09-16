@@ -24,13 +24,16 @@ func (j Job) Clone() Job {
 type JobStatusKind int
 
 const (
-	JobRunning JobStatusKind = iota
+	JobUnknown JobStatusKind = iota
+	JobRunning
 	JobSucceeded
 	JobAborted
 )
 
 func (k JobStatusKind) String() string {
 	switch k {
+	case JobUnknown:
+		return "unknown"
 	case JobRunning:
 		return "running"
 	case JobSucceeded:
@@ -38,8 +41,12 @@ func (k JobStatusKind) String() string {
 	case JobAborted:
 		return "abort"
 	default:
-		return "unknown"
+		return "bad"
 	}
+}
+
+func (k JobStatusKind) IsFinished() bool {
+	return k == JobSucceeded || k == JobAborted
 }
 
 type JobStatus struct {
@@ -47,6 +54,7 @@ type JobStatus struct {
 	Reason string
 }
 
+func NewStatusUnknown() JobStatus   { return JobStatus{Kind: JobUnknown} }
 func NewStatusRunning() JobStatus   { return JobStatus{Kind: JobRunning} }
 func NewStatusSucceeded() JobStatus { return JobStatus{Kind: JobSucceeded} }
 func NewStatusAborted(reason string) JobStatus {
@@ -77,13 +85,12 @@ func (r RoomDesc) Clone() RoomDesc {
 type DB interface {
 	UpdateRoom(ctx context.Context, room RoomDesc) error
 	DeleteRoom(ctx context.Context, roomID string) error
-	AddGame(ctx context.Context, contestID string, game *battle.GameExt) error
 }
 
 type Scheduler interface {
 	IsContestRunning(contestID string) bool
 	NextJob(ctx context.Context) (*Job, error)
-	OnJobFinished(jobID string, status JobStatus)
+	OnJobFinished(jobID string, status JobStatus, game *battle.GameExt)
 }
 
 type Options struct {

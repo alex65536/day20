@@ -3,6 +3,7 @@ package roomkeeper
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -121,6 +122,25 @@ func (k *Keeper) gc() {
 	}
 }
 
+func (k *Keeper) abortRoomJob(r *roomExt, reason string) {
+	curJob := r.room.Job()
+	if curJob == nil {
+		return
+	}
+	game, err := r.room.GameExt()
+	if err != nil {
+		if !errors.Is(err, ErrGameNotReady) {
+			k.log.Warn("cannot extract game from aborted job",
+				slog.String("room_id", r.room.ID()),
+				slog.String("job_id", curJob.Desc.ID),
+			)
+		}
+		game = nil
+	}
+	k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted(reason), game)
+	r.room.SetJob(nil)
+}
+
 func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	r.mu.Lock()
 	locked := r.locked
@@ -130,10 +150,8 @@ func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	}
 	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
-	if curJob := r.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted("room stopped"))
-	}
-	r.room.Stop()
+	k.abortRoomJob(r, "room stopped")
+	r.room.Stop(log)
 	if err := k.db.DeleteRoom(ctx, roomID); err != nil {
 		log.Error("cannot delete room from db", slog.String("room_id", roomID), slogx.Err(err))
 	}
@@ -200,61 +218,52 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 			Message: "no job currently running, nothing to update",
 		}
 	}
-	if req.Done && req.Error != "" {
-		log.Warn("received error update from client", slog.String("err", req.Error))
+
+	if !k.sched.IsContestRunning(job.ContestID) {
+		k.abortRoomJob(room, "contest canceled")
+		return nil, &roomapi.Error{
+			Code:    roomapi.ErrNoJobRunning,
+			Message: "job has just been canceled",
+		}
 	}
-	status, state, updErr := func() (JobStatus, *delta.JobState, error) {
-		if !k.sched.IsContestRunning(job.ContestID) {
-			room.room.SetJob(nil)
-			return NewStatusAborted("contest canceled"), nil, &roomapi.Error{
-				Code:    roomapi.ErrNoJobRunning,
-				Message: "job has just been canceled",
+
+	status, game, updErr := func() (JobStatus, *battle.GameExt, error) {
+		status, state, updErr := room.room.Update(log, req)
+		var game *battle.GameExt
+		if status.Kind.IsFinished() && state != nil && state.Info != nil {
+			var err error
+			game, err = state.GameExt()
+			if err != nil {
+				game = nil
+				log.Warn("cannot create resulting game", slogx.Err(err))
+				if status.Kind != JobAborted {
+					status = NewStatusAborted("job cannot be collected into game")
+				}
+				if updErr == nil {
+					updErr = &roomapi.Error{
+						Code:    roomapi.ErrBadRequest,
+						Message: "result cannot be collected into game",
+					}
+				}
 			}
 		}
-		return room.room.Update(req)
+		return status, game, updErr
 	}()
 
-	mustAbort := false
-	defer func() {
-		if status.Kind == JobRunning {
-			return
-		}
-		if mustAbort {
-			status = NewStatusAborted("failed to finish job properly")
-		}
-		k.sched.OnJobFinished(job.Desc.ID, status)
-	}()
+	if status.Kind.IsFinished() {
+		k.sched.OnJobFinished(job.Desc.ID, status, game)
+	}
 
 	if err := k.db.UpdateRoom(ctx, room.room.Desc().Clone()); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
-		mustAbort = true
 		return nil, fmt.Errorf("update room in db: %w", err)
-	}
-
-	if status.Kind == JobSucceeded {
-		if updErr != nil {
-			panic(fmt.Sprintf("must not happen: %v", err))
-		}
-		game, err := state.GameExt()
-		if err != nil {
-			mustAbort = true
-			log.Warn("cannot create resulting game", slogx.Err(err))
-			return nil, &roomapi.Error{
-				Code:    roomapi.ErrBadRequest,
-				Message: "result cannot be collected into game",
-			}
-		}
-		if err := k.db.AddGame(ctx, job.ContestID, game); err != nil {
-			mustAbort = true
-			log.Error("cannot add game into db", slogx.Err(err))
-			return nil, fmt.Errorf("add game in db: %w", err)
-		}
 	}
 
 	if updErr != nil {
 		log.Info("error updating room", slogx.Err(err))
 		return nil, fmt.Errorf("cannot update: %w", updErr)
 	}
+
 	return &roomapi.UpdateResponse{}, nil
 }
 
@@ -299,9 +308,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 		return nil, fmt.Errorf("poll for job: %w", err)
 	}
 
-	if curJob := room.room.Job(); curJob != nil {
-		k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted("job lost by room"))
-	}
+	k.abortRoomJob(room, "job lost by room")
 	room.room.SetJob(job)
 
 	if err := k.db.UpdateRoom(ctx, room.room.Desc().Clone()); err != nil {

@@ -31,15 +31,6 @@ type db struct{}
 
 func (db) UpdateRoom(context.Context, roomkeeper.RoomDesc) error { return nil }
 func (db) DeleteRoom(context.Context, string) error              { return nil }
-func (db) AddGame(_ context.Context, _ string, game *battle.GameExt) error {
-	pgn, err := game.PGN()
-	if err != nil {
-		fmt.Println("bad game: " + err.Error())
-		return fmt.Errorf("bad game: %w", err)
-	}
-	fmt.Println(pgn)
-	return nil
-}
 
 type scheduler struct {
 	log   *slog.Logger
@@ -79,12 +70,20 @@ func (s *scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 	}, nil
 }
 
-func (s scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus) {
+func (s scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, game *battle.GameExt) {
 	s.log.Info("job finished",
 		slog.String("job_id", jobID),
 		slog.String("status", status.Kind.String()),
 		slog.String("reason", status.Reason),
 	)
+	if status.Kind == roomkeeper.JobSucceeded {
+		pgn, err := game.PGN()
+		if err != nil {
+			fmt.Println("bad game: " + err.Error())
+		} else {
+			fmt.Println(pgn)
+		}
+	}
 }
 
 func init() {
