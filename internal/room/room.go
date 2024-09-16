@@ -113,6 +113,7 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 func (j *job) prefail(ctx context.Context, failErr error) error {
 	return j.update(ctx, &roomapi.UpdateRequest{
 		RoomID: j.roomID,
+		JobID:  j.desc.ID,
 		From:   delta.JobCursor{},
 		Delta:  &delta.JobState{},
 		Done:   true,
@@ -212,6 +213,7 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 					}
 					if err := j.update(ctx, &roomapi.UpdateRequest{
 						RoomID:    j.roomID,
+						JobID:     j.desc.ID,
 						From:      cursor,
 						Delta:     dd,
 						Timestamp: delta.NowTimestamp(),

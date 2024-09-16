@@ -138,6 +138,12 @@ func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, 
 			Message: "no job running",
 		}
 	}
+	if r.data.Job.Desc.ID != req.JobID {
+		return NewStatusUnknown(), nil, &roomapi.Error{
+			Code:    roomapi.ErrNoJobRunning,
+			Message: "job id mismatch",
+		}
+	}
 
 	status := NewStatusRunning()
 	defer func() {

@@ -13,8 +13,7 @@ import (
 var ErrGameNotReady = errors.New("game not ready")
 
 type Job struct {
-	ContestID string
-	Desc      roomapi.Job
+	Desc roomapi.Job
 }
 
 func (j Job) Clone() Job {
@@ -92,7 +91,7 @@ type DB interface {
 }
 
 type Scheduler interface {
-	IsContestRunning(contestID string) bool
+	IsJobAborted(jobID string) (string, bool)
 	NextJob(ctx context.Context) (*Job, error)
 	OnJobFinished(jobID string, status JobStatus, game *battle.GameExt)
 }

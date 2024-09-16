@@ -46,8 +46,8 @@ func newScheduler(log *slog.Logger) *scheduler {
 	}
 }
 
-func (s *scheduler) IsContestRunning(contestID string) bool {
-	return true
+func (s *scheduler) IsJobAborted(jobID string) (string, bool) {
+	return "", false
 }
 
 var globalControl clock.Control
@@ -58,7 +58,6 @@ func (s *scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 		time.Sleep(3 * time.Second)
 	}
 	return &roomkeeper.Job{
-		ContestID: "contest0",
 		Desc: roomapi.Job{
 			ID:          id.ID(),
 			TimeControl: &globalControl,

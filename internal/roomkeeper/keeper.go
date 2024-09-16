@@ -222,9 +222,20 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 			Message: "no job currently running, nothing to update",
 		}
 	}
+	if job.Desc.ID != req.JobID {
+		log.Warn("job id mismatch",
+			slog.String("exp_job_id", job.Desc.ID),
+			slog.String("got_job_id", req.JobID),
+		)
+		k.abortRoomJob(room, fmt.Sprintf("job lost by room"))
+		return nil, &roomapi.Error{
+			Code:    roomapi.ErrNoJobRunning,
+			Message: "job id mismatched",
+		}
+	}
 
-	if !k.sched.IsContestRunning(job.ContestID) {
-		k.abortRoomJob(room, "contest canceled")
+	if reason, ok := k.sched.IsJobAborted(job.Desc.ID); ok {
+		k.abortRoomJob(room, fmt.Sprintf("job aborted by scheduler: %v", reason))
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job has just been canceled",
@@ -291,6 +302,8 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 
 	log.Info("fetching job for room")
 
+	k.abortRoomJob(room, "job lost by room")
+
 	subctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	job, err := k.sched.NextJob(subctx)
@@ -312,7 +325,6 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 		return nil, fmt.Errorf("poll for job: %w", err)
 	}
 
-	k.abortRoomJob(room, "job lost by room")
 	room.room.SetJob(job)
 
 	if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.Data()); err != nil {
