@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alex65536/day20/internal/util/id"
+	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/uci"
 	"github.com/alex65536/go-chess/util/maybe"
@@ -56,7 +56,7 @@ func NewEnginePool(ctx context.Context, log *slog.Logger, o EnginePoolOptions) (
 	o.FillDefaults()
 
 	if !slogx.IsDiscard(log) {
-		log = log.With(slog.String("pool_id", id.ID()))
+		log = log.With(slog.String("pool_id", idgen.ID()))
 	}
 
 	poolCtx, cancel := context.WithCancel(context.Background())
@@ -114,7 +114,7 @@ func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
 	logger := uci.NewNullLogger()
 	if !slogx.IsDiscard(p.log) {
 		logger = &logAdapter{
-			log:   p.log.With(slog.String("engine_id", id.ID())),
+			log:   p.log.With(slog.String("engine_id", idgen.ID())),
 			level: slog.LevelInfo,
 		}
 	}

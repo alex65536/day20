@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	httputil "github.com/alex65536/day20/internal/util/http"
+	"github.com/alex65536/day20/internal/util/httputil"
 )
 
 type ClientOptions struct {

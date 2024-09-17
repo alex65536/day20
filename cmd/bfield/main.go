@@ -17,8 +17,8 @@ import (
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/field"
 	"github.com/alex65536/day20/internal/opening"
-	randutil "github.com/alex65536/day20/internal/util/rand"
-	"github.com/alex65536/day20/internal/util/signal"
+	"github.com/alex65536/day20/internal/util/randutil"
+	"github.com/alex65536/day20/internal/util/sigutil"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/util/style"
 )
@@ -54,7 +54,7 @@ Battlefield is a tool to run matches between chess engines.
 `,
 	Version: "0.9.15-beta",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+		ctx, cancel := sigutil.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
 
 		if len(args) != 2 {

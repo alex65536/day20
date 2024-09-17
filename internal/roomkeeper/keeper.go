@@ -13,8 +13,8 @@ import (
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
-	httputil "github.com/alex65536/day20/internal/util/http"
-	"github.com/alex65536/day20/internal/util/id"
+	"github.com/alex65536/day20/internal/util/httputil"
+	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
 )
 
@@ -354,7 +354,7 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 	func() {
 		k.mu.Lock()
 		defer k.mu.Unlock()
-		roomID = id.ID()
+		roomID = idgen.ID()
 		if _, ok := k.rooms[roomID]; ok {
 			panic("id collision")
 		}

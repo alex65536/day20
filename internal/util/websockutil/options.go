@@ -1,4 +1,4 @@
-package websocket
+package websockutil
 
 import (
 	"time"

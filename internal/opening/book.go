@@ -12,7 +12,7 @@ import (
 
 	"github.com/alex65536/go-chess/chess"
 
-	randutil "github.com/alex65536/day20/internal/util/rand"
+	"github.com/alex65536/day20/internal/util/randutil"
 )
 
 var moveNumRegex = regexp.MustCompile(`^[0-9]+\.$`)

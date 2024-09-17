@@ -1,4 +1,4 @@
-package id
+package idgen
 
 import (
 	crypto "crypto/rand"

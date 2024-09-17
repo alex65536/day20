@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/alex65536/day20/internal/roomkeeper"
-	"github.com/alex65536/day20/internal/util/id"
-	websockutil "github.com/alex65536/day20/internal/util/websocket"
+	"github.com/alex65536/day20/internal/util/idgen"
+	"github.com/alex65536/day20/internal/util/websockutil"
 )
 
 type Config struct {
@@ -48,7 +48,7 @@ func Handle(log *slog.Logger, mux *http.ServeMux, prefix string, cfg Config, o O
 	o.FillDefaults()
 
 	if cfg.ServerID == "" {
-		cfg.ServerID = id.ID()
+		cfg.ServerID = idgen.ID()
 	}
 	cfg.prefix = prefix
 	cfg.opts = &o

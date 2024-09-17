@@ -1,21 +1,21 @@
-package util
+package clone
 
 import (
 	"github.com/alex65536/go-chess/util/maybe"
 )
 
-type Clonable[T any] interface {
+type Cloner[T any] interface {
 	Clone() T
 }
 
-func CloneMaybe[T Clonable[T]](m maybe.Maybe[T]) maybe.Maybe[T] {
+func Maybe[T Cloner[T]](m maybe.Maybe[T]) maybe.Maybe[T] {
 	if m.IsNone() {
 		return maybe.None[T]()
 	}
 	return maybe.Some(m.Get().Clone())
 }
 
-func ClonePtr[T Clonable[T]](a *T) *T {
+func Ptr[T Cloner[T]](a *T) *T {
 	if a == nil {
 		return nil
 	}
@@ -23,7 +23,7 @@ func ClonePtr[T Clonable[T]](a *T) *T {
 	return &b
 }
 
-func CloneTrivialPtr[T any](a *T) *T {
+func TrivialPtr[T any](a *T) *T {
 	if a == nil {
 		return nil
 	}

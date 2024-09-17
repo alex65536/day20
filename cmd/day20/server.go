@@ -14,7 +14,7 @@ import (
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
-	"github.com/alex65536/day20/internal/util/id"
+	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/clock"
@@ -59,7 +59,7 @@ func (s *scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
 	}
 	return &roomkeeper.Job{
 		Desc: roomapi.Job{
-			ID:          id.ID(),
+			ID:          idgen.ID(),
 			TimeControl: &globalControl,
 			White: roomapi.JobEngine{
 				Name: "stockfish",

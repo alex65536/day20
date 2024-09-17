@@ -8,7 +8,7 @@ import (
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
-	"github.com/alex65536/day20/internal/util/id"
+	"github.com/alex65536/day20/internal/util/idgen"
 )
 
 type room struct {
@@ -51,7 +51,7 @@ func (r *room) Subscribe() (<-chan struct{}, func()) {
 		close(ch)
 		return ch, func() {}
 	}
-	id := id.ID()
+	id := idgen.ID()
 	if _, ok := r.subs[id]; ok {
 		panic("id collision")
 	}

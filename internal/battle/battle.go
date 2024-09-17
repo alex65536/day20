@@ -11,7 +11,7 @@ import (
 	"github.com/alex65536/go-chess/util/maybe"
 
 	"github.com/alex65536/day20/internal/opening"
-	"github.com/alex65536/day20/internal/util"
+	"github.com/alex65536/day20/internal/util/clone"
 )
 
 type Watcher interface {
@@ -36,7 +36,7 @@ type Options struct {
 }
 
 func (o Options) Clone() Options {
-	o.TimeControl = util.CloneMaybe(o.TimeControl)
+	o.TimeControl = clone.Maybe(o.TimeControl)
 	return o
 }
 
@@ -162,7 +162,7 @@ func (b *Battle) doImpl(ctx context.Context, watcher Watcher) (gameExt *GameExt,
 		WhiteName:   b.White.Name(),
 		BlackName:   b.Black.Name(),
 		Round:       0, // Not specified.
-		TimeControl: util.CloneMaybe(b.Options.TimeControl),
+		TimeControl: clone.Maybe(b.Options.TimeControl),
 		FixedTime:   b.Options.FixedTime,
 	}
 	for range opening.Len() {

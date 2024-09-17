@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/alex65536/day20/internal/battle"
-	"github.com/alex65536/day20/internal/util"
+	"github.com/alex65536/day20/internal/util/clone"
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/clock"
 	"github.com/alex65536/go-chess/uci"
@@ -33,7 +33,7 @@ func (i *Info) Clone() *Info {
 		return nil
 	}
 	res := *i
-	res.TimeControl = util.CloneMaybe(res.TimeControl)
+	res.TimeControl = clone.Maybe(res.TimeControl)
 	return &res
 }
 
@@ -383,7 +383,7 @@ func (s *JobState) GameExt() (*battle.GameExt, error) {
 		WhiteName:   s.Info.WhiteName,
 		BlackName:   s.Info.BlackName,
 		Round:       0,
-		TimeControl: util.CloneMaybe(s.Info.TimeControl),
+		TimeControl: clone.Maybe(s.Info.TimeControl),
 		FixedTime:   s.Info.FixedTime,
 	}, nil
 }

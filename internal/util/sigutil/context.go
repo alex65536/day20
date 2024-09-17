@@ -1,4 +1,4 @@
-package signal
+package sigutil
 
 import (
 	"context"

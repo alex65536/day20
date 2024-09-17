@@ -7,7 +7,7 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
-	"github.com/alex65536/day20/internal/util"
+	"github.com/alex65536/day20/internal/util/clone"
 )
 
 var ErrGameNotReady = errors.New("game not ready")
@@ -74,7 +74,7 @@ type RoomData struct {
 }
 
 func (d RoomData) Clone() RoomData {
-	d.Job = util.ClonePtr(d.Job)
+	d.Job = clone.Ptr(d.Job)
 	return d
 }
 

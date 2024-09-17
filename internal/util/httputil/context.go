@@ -1,16 +1,16 @@
-package http
+package httputil
 
 import (
 	"context"
 	"net/http"
 
-	"github.com/alex65536/day20/internal/util/id"
+	"github.com/alex65536/day20/internal/util/idgen"
 )
 
 type reqIDKey struct{}
 
 func WrapRequestContext(parent context.Context) context.Context {
-	return context.WithValue(parent, reqIDKey{}, id.ID())
+	return context.WithValue(parent, reqIDKey{}, idgen.ID())
 }
 
 func WrapRequest(req *http.Request) *http.Request {

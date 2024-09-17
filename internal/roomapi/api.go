@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/alex65536/day20/internal/delta"
-	"github.com/alex65536/day20/internal/util"
-	httputil "github.com/alex65536/day20/internal/util/http"
+	"github.com/alex65536/day20/internal/util/clone"
+	"github.com/alex65536/day20/internal/util/httputil"
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/clock"
 )
@@ -89,11 +89,11 @@ type Job struct {
 }
 
 func (j Job) Clone() Job {
-	j.FixedTime = util.CloneTrivialPtr(j.FixedTime)
-	j.TimeControl = util.ClonePtr(j.TimeControl)
-	j.StartBoard = util.CloneTrivialPtr(j.StartBoard)
+	j.FixedTime = clone.TrivialPtr(j.FixedTime)
+	j.TimeControl = clone.Ptr(j.TimeControl)
+	j.StartBoard = clone.TrivialPtr(j.StartBoard)
 	j.StartMoves = slices.Clone(j.StartMoves)
-	j.TimeMargin = util.CloneTrivialPtr(j.TimeMargin)
+	j.TimeMargin = clone.TrivialPtr(j.TimeMargin)
 	j.White = j.White.Clone()
 	j.Black = j.Black.Clone()
 	return j

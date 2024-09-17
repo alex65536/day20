@@ -14,7 +14,7 @@ import (
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
-	httputil "github.com/alex65536/day20/internal/util/http"
+	"github.com/alex65536/day20/internal/util/httputil"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/util/maybe"
