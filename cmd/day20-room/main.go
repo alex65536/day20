@@ -14,14 +14,20 @@ import (
 	"github.com/alex65536/day20/internal/room"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/day20/internal/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 )
 
 var roomCmd = &cobra.Command{
-	Use:   "room",
-	Args:  cobra.ExactArgs(0),
-	Short: "Start day20 room client",
+	Use:     "day20-room",
+	Args:    cobra.ExactArgs(0),
+	Version: version.Version,
+	Short:   "Start Day20 room client",
+	Long: `Day20 is a toolkit to run and display confrontations between chess engines.
+
+This command runs Day20 room client.
+`,
 }
 
 func init() {
@@ -112,5 +118,9 @@ func init() {
 			}
 		}
 		return nil
+	}
+
+	if err := roomCmd.Execute(); err != nil {
+		os.Exit(1)
 	}
 }

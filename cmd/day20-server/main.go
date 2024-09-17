@@ -16,15 +16,21 @@ import (
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/day20/internal/version"
 	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/clock"
 	"github.com/spf13/cobra"
 )
 
 var serverCmd = &cobra.Command{
-	Use:   "server",
-	Args:  cobra.ExactArgs(0),
-	Short: "Start day20 server",
+	Use:     "server",
+	Args:    cobra.ExactArgs(0),
+	Version: version.Version,
+	Short:   "Start Day20 server",
+	Long: `Day20 is a toolkit to run and display confrontations between chess engines.
+
+This command runs Day20 server.
+`,
 }
 
 type db struct{}
@@ -155,5 +161,9 @@ func init() {
 
 		<-ctx.Done()
 		return nil
+	}
+
+	if err := serverCmd.Execute(); err != nil {
+		os.Exit(1)
 	}
 }
