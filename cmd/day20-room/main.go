@@ -30,7 +30,7 @@ This command runs Day20 room client.
 `,
 }
 
-func init() {
+func main() {
 	defaultTokenFile := ""
 	confDir, err := os.UserConfigDir()
 	if err != nil {

@@ -92,7 +92,7 @@ func (s scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, game
 	}
 }
 
-func init() {
+func main() {
 	p := serverCmd.Flags()
 	endpoint := p.StringP(
 		"endpoint", "e", "127.0.0.1:8080",
