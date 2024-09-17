@@ -17,11 +17,12 @@ import (
 
 type logAdapter struct {
 	log   *slog.Logger
+	msg   string
 	level slog.Level
 }
 
 func (l *logAdapter) Printf(s string, args ...any) {
-	l.log.Log(context.Background(), l.level, fmt.Sprintf(s, args...))
+	l.log.Log(context.Background(), l.level, l.msg, slog.String("msg", fmt.Sprintf(s, args...)))
 }
 
 type EnginePool interface {
@@ -115,6 +116,7 @@ func (p *enginePool) AcquireEngine(ctx context.Context) (*uci.Engine, error) {
 	if !slogx.IsDiscard(p.log) {
 		logger = &logAdapter{
 			log:   p.log.With(slog.String("engine_id", idgen.ID())),
+			msg:   "message from engine",
 			level: slog.LevelInfo,
 		}
 	}

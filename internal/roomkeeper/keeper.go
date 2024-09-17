@@ -227,7 +227,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 			slog.String("exp_job_id", job.Desc.ID),
 			slog.String("got_job_id", req.JobID),
 		)
-		k.abortRoomJob(room, fmt.Sprintf("job lost by room"))
+		k.abortRoomJob(room, "job lost by room")
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job id mismatched",
