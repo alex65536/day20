@@ -16,6 +16,7 @@ import (
 	"github.com/alex65536/day20/internal/util/httputil"
 	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/go-chess/util/maybe"
 )
 
 type roomExt struct {
@@ -126,23 +127,27 @@ func (k *Keeper) gc() {
 	}
 }
 
-func (k *Keeper) abortRoomJob(r *roomExt, reason string) {
-	curJob := r.room.Job()
-	if curJob == nil {
+func (k *Keeper) abortRoomJob(ctx context.Context, log *slog.Logger, r *roomExt, reason string) {
+	maybeCurJobID := r.room.JobID()
+	if maybeCurJobID.IsNone() {
 		return
 	}
+	curJobID := maybeCurJobID.Get()
 	game, err := r.room.GameExt()
 	if err != nil {
 		if !errors.Is(err, ErrGameNotReady) {
 			k.log.Warn("cannot extract game from aborted job",
 				slog.String("room_id", r.room.ID()),
-				slog.String("job_id", curJob.Desc.ID),
+				slog.String("job_id", curJobID),
 			)
 		}
 		game = nil
 	}
-	k.sched.OnJobFinished(curJob.Desc.ID, NewStatusAborted(reason), game)
+	k.sched.OnJobFinished(curJobID, NewStatusAborted(reason), game)
 	r.room.SetJob(nil)
+	if err := k.db.UpdateRoom(ctx, r.room.ID(), maybe.None[string]()); err != nil {
+		log.Error("cannot update room in db", slogx.Err(err))
+	}
 }
 
 func (k *Keeper) stop(ctx context.Context, r *roomExt) {
@@ -154,9 +159,9 @@ func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	}
 	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
-	k.abortRoomJob(r, "room stopped")
+	k.abortRoomJob(ctx, log, r, "room stopped")
 	r.room.Stop(log)
-	if err := k.db.DeleteRoom(ctx, roomID); err != nil {
+	if err := k.db.StopRoom(ctx, roomID); err != nil {
 		log.Error("cannot delete room from db", slog.String("room_id", roomID), slogx.Err(err))
 	}
 }
@@ -215,27 +220,28 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 
 	log.Info("updating room")
 
-	job := room.room.Job()
-	if job == nil {
+	maybeJobID := room.room.JobID()
+	if maybeJobID.IsNone() {
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "no job currently running, nothing to update",
 		}
 	}
-	if job.Desc.ID != req.JobID {
+	jobID := maybeJobID.Get()
+	if jobID != req.JobID {
 		log.Warn("job id mismatch",
-			slog.String("exp_job_id", job.Desc.ID),
+			slog.String("exp_job_id", jobID),
 			slog.String("got_job_id", req.JobID),
 		)
-		k.abortRoomJob(room, "job lost by room")
+		k.abortRoomJob(ctx, log, room, "job lost by room")
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job id mismatched",
 		}
 	}
 
-	if reason, ok := k.sched.IsJobAborted(job.Desc.ID); ok {
-		k.abortRoomJob(room, fmt.Sprintf("job aborted by scheduler: %v", reason))
+	if reason, ok := k.sched.IsJobAborted(jobID); ok {
+		k.abortRoomJob(ctx, log, room, fmt.Sprintf("job aborted by scheduler: %v", reason))
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job has just been canceled",
@@ -266,12 +272,10 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}()
 
 	if status.Kind.IsFinished() {
-		k.sched.OnJobFinished(job.Desc.ID, status, game)
-	}
-
-	if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.Data()); err != nil {
-		log.Error("cannot update room in db", slogx.Err(err))
-		return nil, fmt.Errorf("update room in db: %w", err)
+		k.sched.OnJobFinished(jobID, status, game)
+		if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.JobID()); err != nil {
+			log.Error("cannot update room in db", slogx.Err(err))
+		}
 	}
 
 	if updErr != nil {
@@ -302,7 +306,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 
 	log.Info("fetching job for room")
 
-	k.abortRoomJob(room, "job lost by room")
+	k.abortRoomJob(ctx, log, room, "job lost by room")
 
 	subctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -326,14 +330,12 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 	}
 
 	room.room.SetJob(job)
-
-	if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.Data()); err != nil {
+	if err := k.db.UpdateRoom(ctx, room.room.ID(), maybe.Some(job.ID)); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
-		return nil, fmt.Errorf("update room in db: %w", err)
 	}
 
 	return &roomapi.JobResponse{
-		Job: job.Desc.Clone(),
+		Job: job.Clone(),
 	}, nil
 }
 
@@ -363,9 +365,7 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 				ID:   roomID,
 				Name: roomID, // TODO: generate nice room names!
 			},
-			Data: RoomData{
-				Job: nil,
-			},
+			Job: nil,
 		}
 		k.rooms[roomID] = newRoomExt(data)
 	}()

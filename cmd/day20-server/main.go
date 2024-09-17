@@ -19,6 +19,7 @@ import (
 	"github.com/alex65536/day20/internal/version"
 	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/clock"
+	"github.com/alex65536/go-chess/util/maybe"
 	"github.com/spf13/cobra"
 )
 
@@ -37,8 +38,8 @@ type db struct{}
 
 func (db) ListActiveRooms(context.Context) ([]roomkeeper.RoomFullData, error) { return nil, nil }
 func (db) CreateRoom(context.Context, roomkeeper.RoomInfo) error              { return nil }
-func (db) UpdateRoom(context.Context, string, roomkeeper.RoomData) error      { return nil }
-func (db) DeleteRoom(context.Context, string) error                           { return nil }
+func (db) UpdateRoom(context.Context, string, maybe.Maybe[string]) error      { return nil }
+func (db) StopRoom(context.Context, string) error                             { return nil }
 
 type scheduler struct {
 	log   *slog.Logger
@@ -58,21 +59,19 @@ func (s *scheduler) IsJobAborted(jobID string) (string, bool) {
 
 var globalControl clock.Control
 
-func (s *scheduler) NextJob(ctx context.Context) (*roomkeeper.Job, error) {
+func (s *scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 	if s.first.Swap(true) {
 		s.log.Info("sleeping before new job")
 		time.Sleep(3 * time.Second)
 	}
-	return &roomkeeper.Job{
-		Desc: roomapi.Job{
-			ID:          idgen.ID(),
-			TimeControl: &globalControl,
-			White: roomapi.JobEngine{
-				Name: "stockfish",
-			},
-			Black: roomapi.JobEngine{
-				Name: "stockfish",
-			},
+	return &roomapi.Job{
+		ID:          idgen.ID(),
+		TimeControl: &globalControl,
+		White: roomapi.JobEngine{
+			Name: "stockfish",
+		},
+		Black: roomapi.JobEngine{
+			Name: "stockfish",
 		},
 	}, nil
 }

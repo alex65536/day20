@@ -7,19 +7,10 @@ import (
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
-	"github.com/alex65536/day20/internal/util/clone"
+	"github.com/alex65536/go-chess/util/maybe"
 )
 
 var ErrGameNotReady = errors.New("game not ready")
-
-type Job struct {
-	Desc roomapi.Job
-}
-
-func (j Job) Clone() Job {
-	j.Desc = j.Desc.Clone()
-	return j
-}
 
 type JobStatusKind int
 
@@ -69,30 +60,21 @@ type RoomInfo struct {
 	Name string
 }
 
-type RoomData struct {
-	Job *Job
-}
-
-func (d RoomData) Clone() RoomData {
-	d.Job = clone.Ptr(d.Job)
-	return d
-}
-
 type RoomFullData struct {
 	Info RoomInfo
-	Data RoomData
+	Job  *roomapi.Job
 }
 
 type DB interface {
 	ListActiveRooms(ctx context.Context) ([]RoomFullData, error)
 	CreateRoom(ctx context.Context, info RoomInfo) error
-	UpdateRoom(ctx context.Context, roomID string, data RoomData) error
-	DeleteRoom(ctx context.Context, roomID string) error
+	UpdateRoom(ctx context.Context, roomID string, jobID maybe.Maybe[string]) error
+	StopRoom(ctx context.Context, roomID string) error
 }
 
 type Scheduler interface {
 	IsJobAborted(jobID string) (string, bool)
-	NextJob(ctx context.Context) (*Job, error)
+	NextJob(ctx context.Context) (*roomapi.Job, error)
 	OnJobFinished(jobID string, status JobStatus, game *battle.GameExt)
 }
 
