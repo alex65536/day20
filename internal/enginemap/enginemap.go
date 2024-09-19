@@ -23,11 +23,11 @@ type EngineOptions struct {
 	Name                        string                 `toml:"name"`
 	Args                        []string               `toml:"args"`
 	Options                     map[string]interface{} `toml:"options,omitempty"`
-	LogEngineString             bool                   `toml:"log_engine_string"`
-	AllowBadSubstringsInOptions bool                   `toml:"allow_bad_substrings_in_options"`
-	InitTimeout                 *time.Duration         `toml:"init_timeout,omitempty"`
-	WaitOnCancelTimeout         *time.Duration         `toml:"wait_on_cancel_timeout,omitempty"`
-	CreateTimeout               *time.Duration         `toml:"create_timeout,omitempty"`
+	LogEngineString             bool                   `toml:"log-engine-string"`
+	AllowBadSubstringsInOptions bool                   `toml:"allow-bad-substrings-in-options"`
+	InitTimeout                 *time.Duration         `toml:"init-timeout,omitempty"`
+	WaitOnCancelTimeout         *time.Duration         `toml:"wait-on-cancel-timeout,omitempty"`
+	CreateTimeout               *time.Duration         `toml:"create-timeout,omitempty"`
 }
 
 func cloneTrivial[T any](a *T) *T {
@@ -114,11 +114,11 @@ type Options struct {
 	// Allows all the executables found in PATH to be run as chess engines as fallback.
 	// SECURITY: May lead to remote code execution. Use only if you COMPLETELY TRUST THE SERVER AND
 	// ALL ITS USERS WHO ARE ALLOWED TO RUN ENGINE CONTESTS.
-	AllowPathDangerous bool `toml:"allow_path_dangerous"`
+	AllowPathDangerous bool `toml:"allow-path-dangerous"`
 
 	// Allows all the executable from the given DIRs to be run as chess engines.
 	// SECURITY: The server can execute ANY FILE from the provided dirs. Use with EXTREME CARE.
-	AllowDirs []string `toml:"allow_dirs"`
+	AllowDirs []string `toml:"allow-dirs"`
 
 	// Default options for engines found with AllowPathDangerous or AllowDirs.
 	Default EngineOptions `toml:"default"`
