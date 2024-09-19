@@ -77,15 +77,15 @@ func (e JobEngine) Clone() JobEngine {
 }
 
 type Job struct {
-	ID             string          `json:"id"`
+	ID             string          `json:"id" gorm:"primaryKey,size:32"`
 	FixedTime      *time.Duration  `json:"fixed_time,omitempty"`
-	TimeControl    *clock.Control  `json:"time_control,omitempty"`
-	StartBoard     *chess.RawBoard `json:"start_board,omitempty"`
-	StartMoves     []chess.UCIMove `json:"start_moves,omitempty"`
+	TimeControl    *clock.Control  `json:"time_control,omitempty" gorm:"serializer:chess"`
+	StartBoard     *chess.RawBoard `json:"start_board,omitempty" gorm:"serializer:chess"`
+	StartMoves     []chess.UCIMove `json:"start_moves,omitempty" gorm:"serializer:json"`
 	ScoreThreshold int32           `json:"score_threshold,omitempty"`
-	TimeMargin     *time.Duration  `json:"time_margin"`
-	White          JobEngine       `json:"white"`
-	Black          JobEngine       `json:"black"`
+	TimeMargin     *time.Duration  `json:"time_margin,omitempty"`
+	White          JobEngine       `json:"white" gorm:"serializer:json"`
+	Black          JobEngine       `json:"black" gorm:"serializer:json"`
 }
 
 func (j Job) Clone() Job {

@@ -56,7 +56,7 @@ func NewStatusAborted(reason string) JobStatus {
 }
 
 type RoomInfo struct {
-	ID   string
+	ID   string `gorm:"primaryKey,size:32"`
 	Name string
 }
 
@@ -75,7 +75,7 @@ type DB interface {
 type Scheduler interface {
 	IsJobAborted(jobID string) (string, bool)
 	NextJob(ctx context.Context) (*roomapi.Job, error)
-	OnJobFinished(jobID string, status JobStatus, game *battle.GameExt)
+	OnJobFinished(ctx context.Context, jobID string, status JobStatus, game *battle.GameExt)
 }
 
 type Options struct {

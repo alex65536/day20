@@ -143,11 +143,11 @@ func (k *Keeper) abortRoomJob(ctx context.Context, log *slog.Logger, r *roomExt,
 		}
 		game = nil
 	}
-	k.sched.OnJobFinished(curJobID, NewStatusAborted(reason), game)
 	r.room.SetJob(nil)
 	if err := k.db.UpdateRoom(ctx, r.room.ID(), maybe.None[string]()); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
 	}
+	k.sched.OnJobFinished(ctx, curJobID, NewStatusAborted(reason), game)
 }
 
 func (k *Keeper) stop(ctx context.Context, r *roomExt) {
@@ -272,14 +272,14 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}()
 
 	if status.Kind.IsFinished() {
-		k.sched.OnJobFinished(jobID, status, game)
 		if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.JobID()); err != nil {
 			log.Error("cannot update room in db", slogx.Err(err))
 		}
+		k.sched.OnJobFinished(ctx, jobID, status, game)
 	}
 
 	if updErr != nil {
-		log.Info("error updating room", slogx.Err(err))
+		log.Info("error updating room", slogx.Err(updErr))
 		return nil, fmt.Errorf("cannot update: %w", updErr)
 	}
 

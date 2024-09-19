@@ -11,7 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/alex65536/day20/internal/battle"
+	"github.com/alex65536/day20/internal/database"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/util/idgen"
@@ -19,7 +21,6 @@ import (
 	"github.com/alex65536/day20/internal/version"
 	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/clock"
-	"github.com/alex65536/go-chess/util/maybe"
 	"github.com/spf13/cobra"
 )
 
@@ -34,22 +35,17 @@ This command runs Day20 server.
 `,
 }
 
-type db struct{}
-
-func (db) ListActiveRooms(context.Context) ([]roomkeeper.RoomFullData, error) { return nil, nil }
-func (db) CreateRoom(context.Context, roomkeeper.RoomInfo) error              { return nil }
-func (db) UpdateRoom(context.Context, string, maybe.Maybe[string]) error      { return nil }
-func (db) StopRoom(context.Context, string) error                             { return nil }
-
 type scheduler struct {
 	log   *slog.Logger
 	first *atomic.Bool
+	db    *database.DB
 }
 
-func newScheduler(log *slog.Logger) *scheduler {
+func newScheduler(log *slog.Logger, db *database.DB) *scheduler {
 	return &scheduler{
 		log:   log,
 		first: new(atomic.Bool),
+		db:    db,
 	}
 }
 
@@ -64,7 +60,7 @@ func (s *scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 		s.log.Info("sleeping before new job")
 		time.Sleep(3 * time.Second)
 	}
-	return &roomapi.Job{
+	job := roomapi.Job{
 		ID:          idgen.ID(),
 		TimeControl: &globalControl,
 		White: roomapi.JobEngine{
@@ -73,37 +69,58 @@ func (s *scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 		Black: roomapi.JobEngine{
 			Name: "stockfish",
 		},
-	}, nil
+	}
+	if err := s.db.CreateRunningJob(ctx, job); err != nil {
+		s.log.Error("could not create running job in db", slogx.Err(err))
+	}
+	return &job, nil
 }
 
-func (s scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, game *battle.GameExt) {
+func (s scheduler) OnJobFinished(ctx context.Context, jobID string, status roomkeeper.JobStatus, game *battle.GameExt) {
 	s.log.Info("job finished",
 		slog.String("job_id", jobID),
 		slog.String("status", status.Kind.String()),
 		slog.String("reason", status.Reason),
 	)
-	if status.Kind == roomkeeper.JobSucceeded {
-		pgn, err := game.PGN()
-		if err != nil {
-			fmt.Println("bad game: " + err.Error())
-		} else {
-			fmt.Println(pgn)
-		}
+	pgn, err := game.PGN()
+	pPgn := &pgn
+	if err != nil {
+		s.log.Error("bad game", slogx.Err(err))
+		pPgn = nil
+	}
+	if err := s.db.FinishRunningJob(ctx, jobID, database.FinishedJobData{
+		Status: status,
+		PGN:    pPgn,
+	}); err != nil {
+		s.log.Error("cannot finish running job", slogx.Err(err))
+	}
+	if status.Kind == roomkeeper.JobSucceeded && pPgn != nil {
+		fmt.Println(pgn)
 	}
 }
 
 func main() {
 	p := serverCmd.Flags()
-	endpoint := p.StringP(
-		"endpoint", "e", "127.0.0.1:8080",
-		"server endpoint")
-	control := p.StringP(
-		"time-control", "C", "40/20",
-		"time control")
+	opts := p.StringP(
+		"options", "o", "",
+		"options file",
+	)
+	if err := serverCmd.MarkFlagRequired("options"); err != nil {
+		panic(err)
+	}
 
 	serverCmd.RunE = func(cmd *cobra.Command, _args []string) error {
-		var err error
-		globalControl, err = clock.ControlFromString(*control)
+		rawOpts, err := os.ReadFile(*opts)
+		if err != nil {
+			return fmt.Errorf("read options: %w", err)
+		}
+		var opts Options
+		if err := toml.Unmarshal(rawOpts, &opts); err != nil {
+			return fmt.Errorf("unmarshal options: %w", err)
+		}
+		opts.FillDefaults()
+
+		globalControl, err = clock.ControlFromString(opts.TimeControl)
 		if err != nil {
 			return fmt.Errorf("parse control: %w", err)
 		}
@@ -114,10 +131,16 @@ func main() {
 		// TODO: write neat colorful logs
 		log := slog.Default()
 
-		keeper, err := roomkeeper.New(ctx, log, db{}, newScheduler(log), roomkeeper.Options{})
+		db, err := database.New(log, opts.DB)
+		if err != nil {
+			return fmt.Errorf("open db: %w", err)
+		}
+		defer db.Close()
+		keeper, err := roomkeeper.New(ctx, log, db, newScheduler(log, db), roomkeeper.Options{})
 		if err != nil {
 			return fmt.Errorf("create roomkeeper: %w", err)
 		}
+		defer keeper.Close()
 		mux := http.NewServeMux()
 		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerOptions{
 			TokenChecker: func(token string) error {
@@ -136,7 +159,7 @@ func main() {
 		servFin := make(chan struct{})
 		servCtx, servCancel := context.WithCancel(ctx)
 		server := &http.Server{
-			Addr:        *endpoint,
+			Addr:        opts.Addr,
 			Handler:     mux,
 			BaseContext: func(net.Listener) context.Context { return servCtx },
 		}
