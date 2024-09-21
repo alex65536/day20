@@ -4,7 +4,7 @@ go 1.22.1
 
 require (
 	github.com/BurntSushi/toml v1.4.0
-	github.com/alex65536/go-chess v0.9.2
+	github.com/alex65536/go-chess v0.9.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20

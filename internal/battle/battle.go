@@ -242,12 +242,12 @@ func (b *Battle) doImpl(ctx context.Context, watcher Watcher) (gameExt *GameExt,
 				return fmt.Errorf("set position: %w", err)
 			}
 			var consumer uci.InfoConsumer
-			var search *uci.Search
 			if watcher != nil {
-				consumer = func(uci.Info) {
+				consumer = func(search *uci.Search, _ uci.Info) {
 					watcher.OnEngineInfo(side, search.Status())
 				}
 			}
+			var search *uci.Search
 			search, err := engine.Go(ctx, uci.GoOptions{
 				TimeSpec: maybe.Pack(game.UCITimeSpec()),
 				Movetime: b.Options.FixedTime,
