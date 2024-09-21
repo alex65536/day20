@@ -1,0 +1,11 @@
+{{define "title"}}Users{{end}}
+
+{{define "body"}}
+  <ul>
+    {{range $i, $user := .Users}}
+      <li>
+        <a href="/user/{{$user.Username}}">{{$user.Username}}</a>
+      </li>
+    {{end}}
+  </ul>
+{{end}}

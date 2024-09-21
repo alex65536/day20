@@ -24,7 +24,7 @@ func (t *templator) makeFuncs() template.FuncMap {
 			return t.cfg.prefix + s
 		},
 		"asStaticURL": func(s string) string {
-			return t.cfg.prefix + s + "?" + t.cfg.ServerID
+			return t.cfg.prefix + s + "?" + t.cfg.opts.ServerID
 		},
 	}
 }

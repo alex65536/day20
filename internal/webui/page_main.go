@@ -10,9 +10,8 @@ import (
 
 type mainDataBuilder struct{}
 
-func (mainDataBuilder) Build(ctx context.Context, log *slog.Logger, cfg *Config, req *http.Request) (any, error) {
-	_ = ctx
-	_ = log
+func (mainDataBuilder) Build(_ context.Context, bc builderCtx) (any, error) {
+	cfg := bc.Config
 
 	type data struct {
 		Rooms []roomkeeper.RoomInfo
@@ -24,5 +23,5 @@ func (mainDataBuilder) Build(ctx context.Context, log *slog.Logger, cfg *Config,
 }
 
 func mainPage(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	return newPage(log, cfg, templ, mainDataBuilder{}, "main")
+	return newPage(log, cfg, pageOptions{}, templ, mainDataBuilder{}, "main")
 }

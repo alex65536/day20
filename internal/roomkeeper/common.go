@@ -79,9 +79,9 @@ type Scheduler interface {
 }
 
 type Options struct {
-	MaxJobFetchTimeout  time.Duration
-	RoomLivenessTimeout time.Duration
-	GCInterval          time.Duration
+	MaxJobFetchTimeout  time.Duration `toml:"max-job-fetch-timeout"`
+	RoomLivenessTimeout time.Duration `toml:"room-liveness-timeout"`
+	GCInterval          time.Duration `toml:"gc-interval"`
 }
 
 func (o *Options) FillDefaults() {

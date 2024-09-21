@@ -121,9 +121,9 @@ func buildPlayerData(col chess.Color, state *delta.JobState) playerData {
 
 type roomDataBuilder struct{}
 
-func (roomDataBuilder) Build(ctx context.Context, log *slog.Logger, cfg *Config, req *http.Request) (any, error) {
-	_ = ctx
-	_ = log
+func (roomDataBuilder) Build(_ context.Context, bc builderCtx) (any, error) {
+	cfg := bc.Config
+	log := bc.Log
 
 	type data struct {
 		ID     string
@@ -134,7 +134,7 @@ func (roomDataBuilder) Build(ctx context.Context, log *slog.Logger, cfg *Config,
 		Black  playerData
 	}
 
-	roomID := req.PathValue("roomID")
+	roomID := bc.Req.PathValue("roomID")
 	info, err := cfg.Keeper.RoomInfo(roomID)
 	if err != nil {
 		if roomapi.MatchesError(err, roomapi.ErrNoSuchRoom) {
@@ -170,7 +170,7 @@ func (roomDataBuilder) Build(ctx context.Context, log *slog.Logger, cfg *Config,
 }
 
 func roomPage(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	return newPage(log, cfg, templ, roomDataBuilder{}, "room", "player", "fen", "cursor")
+	return newPage(log, cfg, pageOptions{}, templ, roomDataBuilder{}, "room", "player", "fen", "cursor")
 }
 
 type roomPGNPageImpl struct {

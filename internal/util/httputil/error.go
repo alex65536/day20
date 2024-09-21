@@ -36,6 +36,19 @@ func MakeError(code int, message string) error {
 	return &Error{code: code, message: message}
 }
 
+func MakeRedirectError(code int, message string, location string) error {
+	if !(300 <= code && code <= 399) {
+		return MakeError(code, message)
+	}
+	return &Error{
+		code:    code,
+		message: message,
+		headers: map[string][]string{
+			"Location": {location},
+		},
+	}
+}
+
 func MakeAuthError(message string, scheme string) error {
 	return &Error{
 		code:    http.StatusUnauthorized,

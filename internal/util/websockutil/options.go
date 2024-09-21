@@ -7,12 +7,12 @@ import (
 )
 
 type Options struct {
-	ReadSize      int
-	WriteSize     int
-	WriteDeadline time.Duration
-	PingInterval  time.Duration
-	PingTimeout   time.Duration
-	ReadMsgLimit  int64
+	ReadSize      int           `toml:"read-size"`
+	WriteSize     int           `toml:"write-size"`
+	WriteDeadline time.Duration `toml:"write-deadline"`
+	PingInterval  time.Duration `toml:"ping-interval"`
+	PingTimeout   time.Duration `toml:"ping-timeout"`
+	ReadMsgLimit  int64         `toml:"read-msg-limit"`
 }
 
 func (o *Options) FillDefaults() {

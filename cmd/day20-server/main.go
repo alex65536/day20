@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"github.com/alex65536/day20/internal/database"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/userauth"
 	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/version"
@@ -101,22 +103,57 @@ func (s scheduler) OnJobFinished(ctx context.Context, jobID string, status roomk
 
 func main() {
 	p := serverCmd.Flags()
-	opts := p.StringP(
+	optsPath := p.StringP(
 		"options", "o", "",
 		"options file",
+	)
+	secretsPath := p.StringP(
+		"secrets", "s", "",
+		"secrets file",
 	)
 	if err := serverCmd.MarkFlagRequired("options"); err != nil {
 		panic(err)
 	}
+	if err := serverCmd.MarkFlagRequired("secrets"); err != nil {
+		panic(err)
+	}
 
 	serverCmd.RunE = func(cmd *cobra.Command, _args []string) error {
-		rawOpts, err := os.ReadFile(*opts)
+		rawSecrets, err := os.ReadFile(*secretsPath)
+		if err != nil {
+			rawSecrets = nil
+			if !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("read secrets: %w", err)
+			}
+		}
+		var secrets Secrets
+		if err := toml.Unmarshal(rawSecrets, &secrets); err != nil {
+			return fmt.Errorf("unmarshal secrets")
+		}
+		secretsChanged, err := secrets.GenerateMissing()
+		if err != nil {
+			return fmt.Errorf("generate secrets: %w", err)
+		}
+		if secretsChanged {
+			newRawSecrets, err := toml.Marshal(&secrets)
+			if err != nil {
+				return fmt.Errorf("marshal secrets")
+			}
+			if err := os.WriteFile(*secretsPath, newRawSecrets, 0600); err != nil {
+				return fmt.Errorf("write secrets: %w", err)
+			}
+		}
+
+		rawOpts, err := os.ReadFile(*optsPath)
 		if err != nil {
 			return fmt.Errorf("read options: %w", err)
 		}
 		var opts Options
 		if err := toml.Unmarshal(rawOpts, &opts); err != nil {
 			return fmt.Errorf("unmarshal options: %w", err)
+		}
+		if err := opts.MixSecrets(&secrets); err != nil {
+			return fmt.Errorf("mix secrets into options: %w", err)
 		}
 		opts.FillDefaults()
 
@@ -136,7 +173,12 @@ func main() {
 			return fmt.Errorf("open db: %w", err)
 		}
 		defer db.Close()
-		keeper, err := roomkeeper.New(ctx, log, db, newScheduler(log, db), roomkeeper.Options{})
+		userMgr, err := userauth.NewManager(log, db, opts.Users)
+		if err != nil {
+			return fmt.Errorf("create user manager: %w", err)
+		}
+		defer userMgr.Close()
+		keeper, err := roomkeeper.New(ctx, log, db, newScheduler(log, db), opts.RoomKeeper)
 		if err != nil {
 			return fmt.Errorf("create roomkeeper: %w", err)
 		}
@@ -152,9 +194,11 @@ func main() {
 		}); err != nil {
 			return fmt.Errorf("handle server: %w", err)
 		}
-		webui.Handle(log, mux, "", webui.Config{
-			Keeper: keeper,
-		}, webui.Options{})
+		webui.Handle(ctx, log, mux, "", webui.Config{
+			Keeper:              keeper,
+			UserManager:         userMgr,
+			SessionStoreFactory: db,
+		}, opts.WebUI)
 
 		servFin := make(chan struct{})
 		servCtx, servCancel := context.WithCancel(ctx)

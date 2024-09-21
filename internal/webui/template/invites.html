@@ -1,0 +1,44 @@
+{{define "title"}}Invitations{{end}}
+
+{{define "body"}}
+  <div>
+    <form action="/invites" method="post">
+      <span>Generate new link:</span>
+      {{.CSRFField}}
+      <input type="hidden" name="action" value="invite">
+      <label for="invite-name">Name:</label>
+      <input type="text" name="invite-name" id="invite-name">
+      <span>Permissions:</span>
+      {{range $i, $perm := .Perms}}
+        <input type="checkbox" id="{{$perm.Field}}" name="{{$perm.Field}}" value="true">
+        <label for="{{$perm.Field}}">{{$perm.Name}}</label>
+      {{end}}
+      <input type="submit" value="Generate">
+    </form>
+  </div>
+  <table>
+    <tr>
+      <th>Name</th>
+      <th>Link</th>
+      <th>Permissions</th>
+      <th>Expires at</th>
+      <th></th>
+    </tr>
+    {{range $i, $inv := .Invites}}
+      <tr>
+        <td>{{$inv.Name}}</td>
+        <td><a href="{{$inv.Link}}">{{$inv.Link}}</a></td>
+        <td>{{$inv.Perms}}</td>
+        <td>{{$inv.ExpiresAt}}</td>
+        <td>
+          <form action="/invites" method="post">
+            {{$.CSRFField}}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="hash" value="{{$inv.Hash}}">
+            <input type="submit" value="Delete">
+          </form>
+        </td>
+      </tr>
+    {{end}}
+  </table>
+{{end}}

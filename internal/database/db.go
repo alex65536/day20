@@ -9,20 +9,25 @@ import (
 
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/userauth"
 	_ "github.com/alex65536/day20/internal/util/gormutil"
 	"github.com/alex65536/day20/internal/util/sliceutil"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/day20/internal/util/timeutil"
+	"github.com/alex65536/day20/internal/webui"
 	"github.com/alex65536/go-chess/util/maybe"
+	"github.com/gorilla/sessions"
+	"github.com/wader/gormstore/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 type Options struct {
-	Path             string        `toml:"path"`
-	Debug            bool          `toml:"debug"`
-	SlowThreshold    time.Duration `toml:"slow-threshold"`
-	BusyTimeout      time.Duration `toml:"busy-timeout"`
-	UseWAL           bool          `toml:"use-wal"`
+	Path          string        `toml:"path"`
+	Debug         bool          `toml:"debug"`
+	SlowThreshold time.Duration `toml:"slow-threshold"`
+	BusyTimeout   time.Duration `toml:"busy-timeout"`
+	UseWAL        bool          `toml:"use-wal"`
 }
 
 func (o *Options) FillDefaults() {
@@ -39,7 +44,11 @@ type DB struct {
 	log *slog.Logger
 }
 
-var _ roomkeeper.DB = (*DB)(nil)
+var (
+	_ roomkeeper.DB             = (*DB)(nil)
+	_ userauth.DB               = (*DB)(nil)
+	_ webui.SessionStoreFactory = (*DB)(nil)
+)
 
 func (d *DB) Close() {
 	db, err := d.db.DB()
@@ -102,7 +111,7 @@ func (d *DB) CreateRunningJob(ctx context.Context, job roomapi.Job) error {
 func (d *DB) FinishRunningJob(ctx context.Context, jobID string, data FinishedJobData) error {
 	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var job RunningJob
-		err := tx.Where("id = ?", jobID).Find(&job).Error
+		err := tx.Where("id = ?", jobID).First(&job).Error
 		if err != nil {
 			return fmt.Errorf("find running job: %w", err)
 		}
@@ -123,7 +132,7 @@ func (d *DB) FinishRunningJob(ctx context.Context, jobID string, data FinishedJo
 
 func (d *DB) ListActiveRooms(ctx context.Context) ([]roomkeeper.RoomFullData, error) {
 	var res []Room
-	err := d.db.WithContext(ctx).Model(&Room{}).Joins("Job").Scan(&res).Error
+	err := d.db.WithContext(ctx).Model(&Room{}).Joins("Job").Find(&res).Error
 	if err != nil {
 		return nil, fmt.Errorf("list active rooms: %w", err)
 	}
@@ -167,4 +176,150 @@ func (d *DB) StopRoom(ctx context.Context, roomID string) error {
 		return fmt.Errorf("delete room: %w", err)
 	}
 	return nil
+}
+
+func (d *DB) CreateUser(ctx context.Context, user userauth.User, link userauth.InviteLink) error {
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var result []userauth.User
+		err := tx.Where("username = ?", user.Username).Limit(1).Find(&result).Error
+		if err != nil {
+			return fmt.Errorf("search for user: %w", err)
+		}
+		if len(result) != 0 {
+			return userauth.ErrUserAlreadyExists
+		}
+		err = tx.Create(&user).Error
+		if err != nil {
+			return fmt.Errorf("create user: %w", err)
+		}
+		delTx := tx.Delete(link)
+		err = delTx.Error
+		if err != nil {
+			return fmt.Errorf("delete link: %w", err)
+		}
+		if delTx.RowsAffected == 0 {
+			return userauth.ErrInviteLinkUsed
+		}
+		return nil
+	})
+}
+
+func (d *DB) applyUserOptions(tx *gorm.DB, os ...userauth.GetUserOptions) *gorm.DB {
+	if len(os) > 1 {
+		panic("too many user options")
+	}
+	if len(os) == 1 {
+		o := os[0]
+		if o.WithInviteLinks {
+			tx = tx.Preload("InviteLinks")
+		}
+		if o.WithRoomTokens {
+			tx = tx.Preload("RoomTokens")
+		}
+	}
+	return tx
+}
+
+func (d *DB) GetUser(ctx context.Context, userID string, o ...userauth.GetUserOptions) (userauth.User, error) {
+	var user userauth.User
+	tx := d.applyUserOptions(d.db.WithContext(ctx), o...)
+	err := tx.Where("id = ?", userID).First(&user).Error
+	if err != nil {
+		return userauth.User{}, fmt.Errorf("get user: %w", err)
+	}
+	return user, nil
+}
+
+func (d *DB) GetUserByUsername(ctx context.Context, username string, o ...userauth.GetUserOptions) (userauth.User, error) {
+	var users []userauth.User
+	tx := d.applyUserOptions(d.db.WithContext(ctx), o...)
+	err := tx.Where("username = ?", username).Limit(1).Find(&users).Error
+	if err != nil {
+		return userauth.User{}, fmt.Errorf("get user: %w", err)
+	}
+	if len(users) == 0 {
+		return userauth.User{}, userauth.ErrUserNotFound
+	}
+	return users[0], nil
+}
+
+func (d *DB) UpdateUser(ctx context.Context, user userauth.User) error {
+	err := d.db.WithContext(ctx).Save(&user).Error
+	if err != nil {
+		return fmt.Errorf("update user: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) CountUsers(ctx context.Context) (int64, error) {
+	var cnt int64
+	err := d.db.WithContext(ctx).Model(&userauth.User{}).Count(&cnt).Error
+	if err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return cnt, nil
+}
+
+func (d *DB) ListUsers(ctx context.Context) ([]userauth.User, error) {
+	var users []userauth.User
+	err := d.db.WithContext(ctx).Find(&users).Error
+	if err != nil {
+		return nil, fmt.Errorf("get users: %w", err)
+	}
+	return users, nil
+}
+
+func (d *DB) CreateInviteLink(ctx context.Context, link userauth.InviteLink) error {
+	err := d.db.WithContext(ctx).Create(&link).Error
+	if err != nil {
+		return fmt.Errorf("create invite link: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) GetInviteLink(ctx context.Context, linkHash string, now timeutil.UTCTime) (userauth.InviteLink, error) {
+	var link userauth.InviteLink
+	err := d.db.WithContext(ctx).Model(&link).Where("hash = ? AND expires_at >= ?", linkHash, now).First(&link).Error
+	if err != nil {
+		return userauth.InviteLink{}, fmt.Errorf("get invite link: %w", err)
+	}
+	return link, nil
+}
+
+func (d *DB) PruneInviteLinks(ctx context.Context, now timeutil.UTCTime) error {
+	err := d.db.WithContext(ctx).Delete(&userauth.InviteLink{}, "expires_at < ?", now).Error
+	if err != nil {
+		return fmt.Errorf("prune invite links: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) DeleteInviteLink(ctx context.Context, linkHash string) error {
+	err := d.db.WithContext(ctx).Delete(&userauth.InviteLink{Hash: linkHash}).Error
+	if err != nil {
+		return fmt.Errorf("delete invite link: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) CreateRoomToken(ctx context.Context, token userauth.RoomToken) error {
+	err := d.db.WithContext(ctx).Create(&token).Error
+	if err != nil {
+		return fmt.Errorf("create room token: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) DeleteRoomToken(ctx context.Context, tokenHash string) error {
+	err := d.db.WithContext(ctx).Delete(&userauth.RoomToken{Hash: tokenHash}).Error
+	if err != nil {
+		return fmt.Errorf("delete room token: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) NewSessionStore(ctx context.Context, opts webui.SessionOptions) sessions.Store {
+	s := gormstore.New(d.db, opts.Key)
+	go s.PeriodicCleanup(opts.CleanupInterval, ctx.Done())
+	return s
 }

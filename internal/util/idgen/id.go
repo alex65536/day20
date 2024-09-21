@@ -50,6 +50,19 @@ func ID() string {
 	return b.String()
 }
 
+func SecureLinkValue() (string, error) {
+	var b strings.Builder
+	var bigLen = big.NewInt(int64(len(idAlphabet)))
+	for range 26 {
+		idx, err := crypto.Int(crypto.Reader, bigLen)
+		if err != nil {
+			return "", fmt.Errorf("crypto rand: %w", err)
+		}
+		_ = b.WriteByte(idAlphabet[int(idx.Int64())])
+	}
+	return b.String(), nil
+}
+
 func SecureToken() (string, error) {
 	var b strings.Builder
 	_, _ = b.WriteString("CqrD2_")

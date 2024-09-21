@@ -1,0 +1,63 @@
+{{define "title"}}{{.Username}}&apos;s profile{{end}}
+
+{{define "body"}}
+  <div>Username: {{.Username}}</div>
+  <div>Permissions: {{.PermStr}}</div>
+
+  {{if .CanChangePassword}}
+    <div>
+      <div>Change password:</div>
+      <form action="/user/{{.Username}}" method="post">
+        {{range $i, $err := .ChangePasswordErrors}}
+          <div>
+            Error: {{$err}}
+          </div>
+        {{end}}
+        {{.CSRFField}}
+        <input type="hidden" name="action" value="password">
+        <div>
+          <label for="old-password">Old password:</label>
+          <input type="password" id="old-password" name="old-password">
+        </div>
+        <div>
+          <label for="old-password">New password:</label>
+          <input type="password" id="new-password" name="new-password">
+        </div>
+        <div>
+          <label for="old-password">New password (again):</label>
+          <input type="password" id="new-password2" name="new-password2">
+        </div>
+        <input type="submit" value="Save">
+      </form>
+    </div>
+  {{end}}
+
+  {{if .CanChangePerms}}
+    <div>
+      <div>Change permissions:</div>
+      <form action="/user/{{.Username}}" method="post">
+      {{range $i, $err := .ChangePermsErrors}}
+        <div>
+          Error: {{$err}}
+        </div>
+      {{end}}
+      {{.CSRFField}}
+      <input type="hidden" name="action" value="perms">
+      <div>
+        <input type="checkbox" id="perm-blocked" name="perm-blocked" value="true" {{if .UserBlocked}}checked{{end}}>
+        <label for="perm-blocked">Blocked</label>
+      </div>
+      {{range $i, $perm := .Perms}}
+        <div>
+          <input type="checkbox" id="{{$perm.Field}}" name="{{$perm.Field}}" value="true" {{if $perm.Active}}checked{{end}}>
+          <label for="{{$perm.Field}}">{{$perm.Name}}</label>
+        </div>
+      {{end}}
+      <input type="submit" value="Save">
+    </div>
+  {{end}}
+
+  {{if .CanInvite}}
+    <a href="/invites">Invite links</a>
+  {{end}}
+{{end}}

@@ -8,8 +8,9 @@ import (
 )
 
 type middlewareBuilder struct {
-	Log    *slog.Logger
-	Prefix string
+	Log         *slog.Logger
+	Prefix      string
+	CSRFProtect func(http.Handler) http.Handler
 }
 
 type middleware struct {
@@ -40,7 +41,7 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (b *middlewareBuilder) WrapPage(h http.Handler) http.Handler {
-	return &middleware{b: b, h: h, kind: "page"}
+	return &middleware{b: b, h: b.CSRFProtect(h), kind: "page"}
 }
 
 func (b *middlewareBuilder) WrapAttach(h http.Handler) http.Handler {

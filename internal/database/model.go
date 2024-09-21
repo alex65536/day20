@@ -3,6 +3,7 @@ package database
 import (
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/userauth"
 )
 
 type RunningJob struct {
@@ -29,4 +30,7 @@ var models = []any{
 	&Room{},
 	&RunningJob{},
 	&FinishedJob{},
+	&userauth.User{},
+	&userauth.InviteLink{},
+	&userauth.RoomToken{},
 }

@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>{{block "title" .}}No title{{end}} — Day20</title>
+    <title>{{block "title" .Data}}No title{{end}} — Day20</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -14,10 +14,22 @@
     <!-- our libs -->
     <script src="{{"/js/day20.js" | asStaticURL}}"></script>
 
-    {{block "head" .}}{{end}}
+    {{block "head" .Data}}{{end}}
   </head>
   <body>
-    {{block "body" .}}{{end}}
+    {{if .WithAuth}}
+      {{if .User}}
+        <div>
+        Hello, <a href="/profile">{{.User.Username}}</a>!
+        <a href="/logout">Log out</a>
+      {{else}}
+        <div>
+          You are not logged in.
+          <a href="/login">Log in</a>
+        </div>
+      {{end}}
+    {{end}}
+    {{block "body" .Data}}{{end}}
   </body>
 </html>
 {{end}}
