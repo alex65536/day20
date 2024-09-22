@@ -151,7 +151,9 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				if err := targetUser.TryChangePerms(ourUser, perms); err != nil {
 					return err.Error()
 				}
-				if err := cfg.UserManager.UpdateUser(ctx, targetUser); err != nil {
+				if err := cfg.UserManager.UpdateUser(ctx, targetUser, userauth.UpdateUserOptions{
+					InvalidatePerms: true,
+				}); err != nil {
 					log.Error("could not save user", slogx.Err(err))
 					return "internal server error"
 				}

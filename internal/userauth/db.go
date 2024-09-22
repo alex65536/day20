@@ -18,12 +18,16 @@ type GetUserOptions struct {
 	WithRoomTokens  bool
 }
 
+type UpdateUserOptions struct {
+	InvalidatePerms bool
+}
+
 type DB interface {
 	CreateUser(ctx context.Context, user User, link InviteLink) error
 	GetUser(ctx context.Context, userID string, o ...GetUserOptions) (User, error)
 	GetUserByUsername(ctx context.Context, username string, o ...GetUserOptions) (User, error)
 	ListUsers(ctx context.Context) ([]User, error)
-	UpdateUser(ctx context.Context, user User) error
+	UpdateUser(ctx context.Context, user User, o ...UpdateUserOptions) error
 	CountUsers(ctx context.Context) (int64, error)
 	CreateInviteLink(ctx context.Context, link InviteLink) error
 	GetInviteLink(ctx context.Context, linkHash string, now timeutil.UTCTime) (InviteLink, error)

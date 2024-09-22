@@ -206,7 +206,7 @@ func (d *DB) CreateUser(ctx context.Context, user userauth.User, link userauth.I
 
 func (d *DB) applyUserOptions(tx *gorm.DB, os ...userauth.GetUserOptions) *gorm.DB {
 	if len(os) > 1 {
-		panic("too many user options")
+		panic("too many options")
 	}
 	if len(os) == 1 {
 		o := os[0]
@@ -246,12 +246,41 @@ func (d *DB) GetUserByUsername(ctx context.Context, username string, o ...userau
 	return users[0], nil
 }
 
-func (d *DB) UpdateUser(ctx context.Context, user userauth.User) error {
-	err := d.db.WithContext(ctx).Save(&user).Error
-	if err != nil {
-		return fmt.Errorf("update user: %w", err)
+func (d *DB) UpdateUser(ctx context.Context, user userauth.User, srcO ...userauth.UpdateUserOptions) error {
+	var o userauth.UpdateUserOptions
+	if len(srcO) > 1 {
+		panic("too many options")
 	}
-	return nil
+	if len(srcO) == 1 {
+		o = srcO[0]
+	}
+
+	if o == (userauth.UpdateUserOptions{}) {
+		err := d.db.WithContext(ctx).Save(&user).Error
+		if err != nil {
+			return fmt.Errorf("update user: %w", err)
+		}
+		return nil
+	}
+
+	return d.db.WithContext(ctx).Transaction(func (tx *gorm.DB) error {
+		if err := tx.Save(&user).Error; err != nil {
+			return fmt.Errorf("update user: %w", err)
+		}
+		if !user.Perms.Get(userauth.PermInvite) {
+			err := tx.Model(&userauth.InviteLink{}).Delete("owner_user_id = ?", user.ID).Error
+			if err != nil {
+				return fmt.Errorf("delete invite links: %w", err)
+			}
+		}
+		if !user.Perms.Get(userauth.PermHostRooms) {
+			err := tx.Model(&userauth.RoomToken{}).Delete("user_id = ?", user.ID).Error
+			if err != nil {
+				return fmt.Errorf("delete room tokens: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 func (d *DB) CountUsers(ctx context.Context) (int64, error) {
