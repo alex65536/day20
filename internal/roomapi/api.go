@@ -77,7 +77,7 @@ func (e JobEngine) Clone() JobEngine {
 }
 
 type Job struct {
-	ID             string          `json:"id" gorm:"primaryKey,size:32"`
+	ID             string          `json:"id" gorm:"primaryKey"`
 	FixedTime      *time.Duration  `json:"fixed_time,omitempty"`
 	TimeControl    *clock.Control  `json:"time_control,omitempty" gorm:"serializer:chess"`
 	StartBoard     *chess.RawBoard `json:"start_board,omitempty" gorm:"serializer:chess"`

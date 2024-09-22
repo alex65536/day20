@@ -56,7 +56,7 @@ func NewStatusAborted(reason string) JobStatus {
 }
 
 type RoomInfo struct {
-	ID   string `gorm:"primaryKey,size:32"`
+	ID   string `gorm:"primaryKey"`
 	Name string
 }
 
