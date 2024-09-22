@@ -221,7 +221,7 @@ func (d *DB) applyUserOptions(tx *gorm.DB, os ...userauth.GetUserOptions) *gorm.
 }
 
 func (d *DB) GetUser(ctx context.Context, userID string, o ...userauth.GetUserOptions) (userauth.User, error) {
-	var users[] userauth.User
+	var users []userauth.User
 	tx := d.applyUserOptions(d.db.WithContext(ctx), o...)
 	err := tx.Where("id = ?", userID).Limit(1).Find(&users).Error
 	if err != nil {
