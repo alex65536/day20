@@ -268,13 +268,13 @@ func (d *DB) UpdateUser(ctx context.Context, user userauth.User, srcO ...useraut
 			return fmt.Errorf("update user: %w", err)
 		}
 		if !user.Perms.Get(userauth.PermInvite) {
-			err := tx.Model(&userauth.InviteLink{}).Delete("owner_user_id = ?", user.ID).Error
+			err := tx.Where("owner_user_id = ?", user.ID).Delete(&userauth.InviteLink{}).Error
 			if err != nil {
 				return fmt.Errorf("delete invite links: %w", err)
 			}
 		}
 		if !user.Perms.Get(userauth.PermHostRooms) {
-			err := tx.Model(&userauth.RoomToken{}).Delete("user_id = ?", user.ID).Error
+			err := tx.Where("user_id = ?", user.ID).Delete(&userauth.RoomToken{}).Error
 			if err != nil {
 				return fmt.Errorf("delete room tokens: %w", err)
 			}

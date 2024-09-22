@@ -69,7 +69,7 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 		perms := []string{}
 		for p := range userauth.PermMax {
 			if l.Perms.Get(p) {
-				perms = append(perms, p.String())
+				perms = append(perms, p.PrettyString())
 			}
 		}
 		invites = append(invites, invitesDataItem{
