@@ -274,6 +274,17 @@ func (u *User) CanChangePerms(initiator *User, newPerms Perms) error {
 	return nil
 }
 
+func (u *User) TryChangePerms(initiator *User, newPerms Perms) error {
+	if newPerms.IsBlocked {
+		newPerms = BlockedPerms()
+	}
+	if err := u.CanChangePerms(initiator, newPerms); err != nil {
+		return err
+	}
+	u.Perms = newPerms
+	return nil
+}
+
 func (l InviteLink) Verify(creator *User) error {
 	// Special cases: IsOwner and IsBlocked are not allowed in invite links.
 	if l.Perms.IsOwner {

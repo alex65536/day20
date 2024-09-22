@@ -30,6 +30,7 @@ func (o *Options) FillDefaults() {
 	}
 	o.DB.FillDefaults()
 	o.WebUI.FillDefaults()
+	o.RoomKeeper.FillDefaults()
 	o.Users.FillDefaults()
 	if o.Users.LinkPrefix == "" {
 		o.Users.LinkPrefix = fmt.Sprintf("http://%v/invite/", o.Addr)

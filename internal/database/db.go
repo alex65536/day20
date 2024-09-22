@@ -221,13 +221,16 @@ func (d *DB) applyUserOptions(tx *gorm.DB, os ...userauth.GetUserOptions) *gorm.
 }
 
 func (d *DB) GetUser(ctx context.Context, userID string, o ...userauth.GetUserOptions) (userauth.User, error) {
-	var user userauth.User
+	var users[] userauth.User
 	tx := d.applyUserOptions(d.db.WithContext(ctx), o...)
-	err := tx.Where("id = ?", userID).First(&user).Error
+	err := tx.Where("id = ?", userID).Limit(1).Find(&users).Error
 	if err != nil {
 		return userauth.User{}, fmt.Errorf("get user: %w", err)
 	}
-	return user, nil
+	if len(users) == 0 {
+		return userauth.User{}, userauth.ErrUserNotFound
+	}
+	return users[0], nil
 }
 
 func (d *DB) GetUserByUsername(ctx context.Context, username string, o ...userauth.GetUserOptions) (userauth.User, error) {

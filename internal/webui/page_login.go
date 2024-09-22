@@ -65,7 +65,7 @@ func (loginDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 			}, nil
 		}
 		bc.ResetSession(makeUserInfo(&user))
-		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "login successful, redirecting", "/")
+		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "login successful", "/")
 	default:
 		return nil, httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 	}

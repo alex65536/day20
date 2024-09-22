@@ -1,7 +1,7 @@
 package idgen
 
 import (
-	crypto "crypto/rand"
+	crand "crypto/rand"
 	"fmt"
 	"math/big"
 	"math/rand/v2"
@@ -54,7 +54,7 @@ func SecureLinkValue() (string, error) {
 	var b strings.Builder
 	var bigLen = big.NewInt(int64(len(idAlphabet)))
 	for range 26 {
-		idx, err := crypto.Int(crypto.Reader, bigLen)
+		idx, err := crand.Int(crand.Reader, bigLen)
 		if err != nil {
 			return "", fmt.Errorf("crypto rand: %w", err)
 		}
@@ -68,7 +68,7 @@ func SecureToken() (string, error) {
 	_, _ = b.WriteString("CqrD2_")
 	var bigLen = big.NewInt(int64(len(tokenAlphabet)))
 	for range 32 {
-		idx, err := crypto.Int(crypto.Reader, bigLen)
+		idx, err := crand.Int(crand.Reader, bigLen)
 		if err != nil {
 			return "", fmt.Errorf("crypto rand: %w", err)
 		}

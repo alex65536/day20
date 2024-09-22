@@ -2,17 +2,20 @@ package userauth
 
 import (
 	"fmt"
+	"unicode/utf8"
 )
 
 func ValidatePassword(password string) error {
-	if len(password) < 8 || len(password) > 64 {
+	pwLen := utf8.RuneCountInString(password)
+	if pwLen < 8 || pwLen > 64 {
 		return fmt.Errorf("password must have from 8 to 64 characters")
 	}
 	return nil
 }
 
 func ValidateUsername(username string) error {
-	if len(username) < 3 || len(username) > 64 {
+	uLen := utf8.RuneCountInString(username)
+	if uLen < 3 || uLen > 64 {
 		return fmt.Errorf("username must have from 3 to 64 characters")
 	}
 	for _, c := range username {

@@ -111,6 +111,9 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 			oldPassword := req.FormValue("old-password")
 			newPassword, newPassword2 := req.FormValue("new-password"), req.FormValue("new-password2")
 			serr := func() string {
+				if !data.CanChangePassword {
+					return "operation not permitted"
+				}
 				if !cfg.UserManager.VerifyPassword(ourUser, []byte(oldPassword)) {
 					return "invalid password"
 				}
@@ -145,10 +148,9 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				if req.FormValue("perm-blocked") == "true" {
 					perms = userauth.BlockedPerms()
 				}
-				if err := targetUser.CanChangePerms(ourUser, perms); err != nil {
+				if err := targetUser.TryChangePerms(ourUser, perms); err != nil {
 					return err.Error()
 				}
-				targetUser.Perms = perms
 				if err := cfg.UserManager.UpdateUser(ctx, targetUser); err != nil {
 					log.Error("could not save user", slogx.Err(err))
 					return "internal server error"
