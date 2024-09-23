@@ -195,6 +195,13 @@ func (s *contestScheduler) IsJobAborted(jobID string) (string, bool) {
 
 func (s *contestScheduler) NextJob(ctx context.Context) (*RunningJob, error) {
 	for {
+		job, ok, err := s.getJob()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			return job, nil
+		}
 		select {
 		case _, ok := <-s.notify:
 			if !ok {
@@ -202,13 +209,6 @@ func (s *contestScheduler) NextJob(ctx context.Context) (*RunningJob, error) {
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		}
-		job, ok, err := s.getJob()
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			return job, nil
 		}
 	}
 }

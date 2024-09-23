@@ -114,11 +114,6 @@ func (s *Scheduler) onHeapUpdatedUnlocked() {
 
 func (s *Scheduler) acquireContest(ctx context.Context) (*contestExt, error) {
 	for {
-		select {
-		case <-s.notify:
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
 		contest, ok := func() (*contestExt, bool) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -139,6 +134,11 @@ func (s *Scheduler) acquireContest(ctx context.Context) (*contestExt, error) {
 		}()
 		if ok {
 			return contest, nil
+		}
+		select {
+		case <-s.notify:
+		case <-ctx.Done():
+			return nil, ctx.Err()
 		}
 	}
 }
