@@ -1,0 +1,53 @@
+{{define "title"}}Contest {{.Name}}{{end}}
+
+{{define "body"}}
+  <h1>Contest {{.Name}}</h1>
+  <div>{{.First}} vs {{.Second}}</div>
+  <div>Kind: {{.Kind}}</div>
+  <div>
+    Time control:
+    {{if .FixedTime}}
+      {{.FixedTime}} per move
+    {{else}}
+      {{.TimeControl}}
+    {{end}}
+  </div>
+  {{if .ScoreThreshold}}
+    <div>Score threshold: {{.ScoreThreshold}}</div>
+  {{end}}
+  <div>Total: {{.Total}}</div>
+  <div>
+    Status: {{.Status}}
+    {{if .Reason}}({{.Reason}}){{end}}
+  </div>
+  <div>
+    Progress:
+    {{if .Progress | gt 0.0}}
+      N/A
+    {{else}}
+      {{.Progress | printf "%.2f"}}%
+    {{end}}
+  </div>
+  <div>
+    <div>Results:</div>
+    <div>Win: {{.FirstWin}}</div>
+    <div>Draw: {{.Draw}}</div>
+    <div>Lose: {{.SecondWin}}</div>
+    <div>Score: {{.Score}}</div>
+    <div>LOS: {{.LOS | printf "%.2f"}}</div>
+    <div>Winner: {{.Winner}} {{if .WinnerConfidence}}(at p = {{.WinnerConfidence | printf "%.2f"}}){{end}}</div>
+    <div>Elo Diff: {{.EloDiff.Low | printf "%.2f"}}/{{.EloDiff.Avg | printf "%.2f"}}/{{.EloDiff.High | printf "%.2f"}} (low/avg/high, at p = 0.95)</div>
+  </div>
+
+  <div>
+    <a href="/contest/{{.ID}}/pgn">PGN</a>
+  </div>
+
+  {{if .CanCancel}}
+    <form action="/contest/{{.ID}}" method="post">
+      {{.CSRFField}}
+      <input type="hidden" name="action" value="cancel">
+      <input type="submit" value="Cancel">
+    </form>
+  {{end}}
+{{end}}

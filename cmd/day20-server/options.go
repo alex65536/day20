@@ -8,30 +8,29 @@ import (
 
 	"github.com/alex65536/day20/internal/database"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
 	"github.com/alex65536/day20/internal/webui"
 )
 
 type Options struct {
-	Addr        string                  `toml:"addr"`
-	TimeControl string                  `toml:"time-control"`
-	DB          database.Options        `toml:"db"`
-	WebUI       webui.Options           `toml:"webui"`
-	RoomKeeper  roomkeeper.Options      `toml:"roomkeeper"`
-	Users       userauth.ManagerOptions `toml:"users"`
+	Addr       string                  `toml:"addr"`
+	DB         database.Options        `toml:"db"`
+	WebUI      webui.Options           `toml:"webui"`
+	RoomKeeper roomkeeper.Options      `toml:"roomkeeper"`
+	Users      userauth.ManagerOptions `toml:"users"`
+	Scheduler  scheduler.Options       `toml:"scheduler"`
 }
 
 func (o *Options) FillDefaults() {
 	if o.Addr == "" {
 		o.Addr = "localhost:8080"
 	}
-	if o.TimeControl == "" {
-		o.TimeControl = "40/60"
-	}
 	o.DB.FillDefaults()
 	o.WebUI.FillDefaults()
 	o.RoomKeeper.FillDefaults()
 	o.Users.FillDefaults()
+	o.Scheduler.FillDefaults()
 	if o.Users.LinkPrefix == "" {
 		o.Users.LinkPrefix = fmt.Sprintf("http://%v/invite/", o.Addr)
 	}

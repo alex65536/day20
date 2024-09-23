@@ -173,14 +173,14 @@ func roomPage(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, er
 	return newPage(log, cfg, pageOptions{}, templ, roomDataBuilder{}, "room", "player", "fen", "cursor")
 }
 
-type roomPGNPageImpl struct {
+type roomPGNAttachImpl struct {
 	log *slog.Logger
 	cfg *Config
 }
 
-func (p *roomPGNPageImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (a *roomPGNAttachImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	log := p.log.With(slog.String("rid", httputil.ExtractReqID(ctx)))
+	log := a.log.With(slog.String("rid", httputil.ExtractReqID(ctx)))
 	log.Info("handle room pgn request",
 		slog.String("method", req.Method),
 		slog.String("addr", req.RemoteAddr),
@@ -193,7 +193,7 @@ func (p *roomPGNPageImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	roomID := req.PathValue("roomID")
-	game, err := p.cfg.Keeper.RoomGameExt(roomID)
+	game, err := a.cfg.Keeper.RoomGameExt(roomID)
 	if err != nil {
 		if roomapi.MatchesError(err, roomapi.ErrNoSuchRoom) {
 			writeHTTPErr(log, w, httputil.MakeError(http.StatusNotFound, "room not found"))
@@ -218,14 +218,15 @@ func (p *roomPGNPageImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "application/vnd.chess-pgn")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"room_%v.pgn\"", roomID))
 	if _, err := io.WriteString(w, pgn); err != nil {
 		log.Info("could not write response", slogx.Err(err))
 	}
 }
 
 func roomPGNAttach(log *slog.Logger, cfg *Config) http.Handler {
-	return &roomPGNPageImpl{
+	return &roomPGNAttachImpl{
 		log: log,
 		cfg: cfg,
 	}

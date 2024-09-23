@@ -1,0 +1,60 @@
+{{define "title"}}New Contest{{end}}
+
+{{define "body"}}
+  <div>Create new contest</div>
+  <form action="/contests/new" method="post">
+    {{range $i, $err := .Errors}}
+      <div>
+        Error: {{$err}}
+      </div>
+    {{end}}
+    {{.CSRFField}}
+    <label for="name">Name</label>
+    <input type="text" name="name" id="name">
+    <div>
+      <div>Time control:</div>
+      <div>
+        <input type="radio" name="time" id="time-fixed" value="fixed">
+        <label for="time-fixed">Fixed per move</label>
+        <input type="text" name="time-fixed-value" id="time-fixed-value">
+        <span>ms</span>
+      </div>
+      <div>
+        <input type="radio" name="time" id="time-control" value="control" checked>
+        <label for="time-control">Control</label>
+        <input type="text" name="time-control-value" id="time-control-value">
+      </div>
+    </div>
+    <div>
+      <div>Openings:</div>
+      <div>
+        <select name="openings" id="openings">
+          <option value="gb20">Built-in (GBSelect2020 by Graham Banks)</option>
+          <option value="gb14">Built-in (Graham2024-1F by Graham Banks)</option>
+          <option value="fen">FEN list</option>
+          <option value="pgn-line">PGN line list</option>
+        </select>
+      </div>
+      <textarea name="openings-value" id="openings-value" cols="60" rows="10"></textarea>
+    </div>
+    <label for="score-threshold">Score threshold</label>
+    <input type="text" name="score-threshold" id="score-threshold">
+    <!-- TODO: time margin -->
+    <div>Kind: Match</div>
+    <div>
+      <label for="first">First player</label>
+      <input type="text" name="first" id="first">
+    </div>
+    <div>
+      <label for="second">Second player</label>
+      <input type="text" name="second" id="second">
+    </div>
+    <div>
+      <label for="game">Games</label>
+      <input type="text" name="games" id="games">
+    </div>
+    <div>
+      <input type="submit" value="Create">
+    </div>
+  </form>
+{{end}}

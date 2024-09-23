@@ -19,7 +19,8 @@ func (ChessSerializer) Scan(ctx context.Context, field *schema.Field, dst reflec
 		noPtrTy = srcTy.Elem()
 	}
 	if noPtrTy != reflect.TypeFor[chess.RawBoard]() &&
-		noPtrTy != reflect.TypeFor[clock.Control]() {
+		noPtrTy != reflect.TypeFor[clock.Control]() &&
+		noPtrTy != reflect.TypeFor[chess.Status]() {
 		return fmt.Errorf("bad field value type: %v", srcTy)
 	}
 	if dbValue == nil {
@@ -60,6 +61,18 @@ func (ChessSerializer) Scan(ctx context.Context, field *schema.Field, dst reflec
 		}
 		return nil
 	}
+	if noPtrTy == reflect.TypeFor[chess.Status]() {
+		s, err := chess.StatusFromString(data)
+		if err != nil {
+			return fmt.Errorf("status from string: %w", err)
+		}
+		if srcTy.Kind() == reflect.Pointer {
+			val.Set(reflect.ValueOf(&s))
+		} else {
+			val.Set(reflect.ValueOf(s))
+		}
+		return nil
+	}
 	panic("must not happen")
 }
 
@@ -75,6 +88,13 @@ func (ChessSerializer) Value(ctx context.Context, field *schema.Field, dst refle
 	case clock.Control:
 		return v.String(), nil
 	case *clock.Control:
+		if v == nil {
+			return nil, nil
+		}
+		return v.String(), nil
+	case chess.Status:
+		return v.String(), nil
+	case *chess.Status:
 		if v == nil {
 			return nil, nil
 		}

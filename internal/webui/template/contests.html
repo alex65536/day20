@@ -1,0 +1,42 @@
+{{define "title"}}Contests{{end}}
+
+{{define "body"}}
+  {{if .All}}
+    <a href="/contests">Show only running</a>
+  {{else}}
+    <a href="/contests?all=true">Show all</a>
+  {{end}}
+  {{if .CanStartContests}}
+    <a href="/contests/new">New contest...</a>
+  {{end}}
+  <table>
+    <tr>
+      <th>Name</th>
+      <th>Kind</th>
+      <th>Status</th>
+      <th>Progress</th>
+      <th>Result</th>
+      <th>PGN</th>
+    </tr>
+    {{range $i, $contest := .Contests}}
+      <tr>
+        <td>
+          <a href="/contest/{{.ID}}">{{.Name}}</a>
+        </td>
+        <td>{{.Kind}}</td>
+        <td>{{.Status}}</td>
+        <td>
+          {{if .Progress | gt 0.0}}
+            N/A
+          {{else}}
+            {{.Progress | printf "%.2f"}}%
+          {{end}}
+        </td>
+        <td>{{.Result}}</td>
+        <td>
+          <a href="/contest/{{.ID}}/pgn" target="_blank">PGN</a>
+        </td>
+      </tr>
+    {{end}}
+  </table>
+{{end}}

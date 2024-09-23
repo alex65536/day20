@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
 	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/websockutil"
@@ -23,6 +24,7 @@ type Config struct {
 	Keeper              *roomkeeper.Keeper
 	UserManager         *userauth.Manager
 	SessionStoreFactory SessionStoreFactory
+	Scheduler           *scheduler.Scheduler
 	sessionStore        sessions.Store
 	prefix              string
 	opts                *Options
@@ -134,6 +136,10 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 	mux.Handle(prefix+"/user/{username}", b.WrapPage(must(userPage(log, &cfg, templ))))
 	mux.Handle(prefix+"/invites", b.WrapPage(must(invitesPage(log, &cfg, templ))))
 	mux.Handle(prefix+"/users", b.WrapPage(must(usersPage(log, &cfg, templ))))
+	mux.Handle(prefix+"/contests", b.WrapPage(must(contestsPage(log, &cfg, templ))))
+	mux.Handle(prefix+"/contests/new", b.WrapPage(must(contestsNewPage(log, &cfg, templ))))
+	mux.Handle(prefix+"/contest/{contestID}", b.WrapPage(must(contestPage(log, &cfg, templ))))
+	mux.Handle(prefix+"/contest/{contestID}/pgn", b.WrapAttach(contestPGNAttach(log, &cfg)))
 
 	// 404.
 	mux.Handle(prefix+"/", b.WrapPage(must(e404Page(log, &cfg, templ))))

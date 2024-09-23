@@ -1,19 +1,29 @@
 package database
 
 import (
-	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
 )
-
-type RunningJob struct {
-	Job roomapi.Job `gorm:"embedded"`
-}
 
 type Room struct {
 	Info  roomkeeper.RoomInfo `gorm:"embedded"`
 	JobID *string
-	Job   *RunningJob
+	Job   *scheduler.RunningJob `gorm:"foreignKey:JobID"`
+}
+
+type Contest struct {
+	Info         scheduler.ContestInfo   `gorm:"embedded"`
+	Data         scheduler.ContestData   `gorm:"embedded"`
+	RunningJobs  []scheduler.RunningJob  `gorm:"foreignKey:ContestID"`
+	FinishedJobs []scheduler.FinishedJob `gorm:"foreignKey:ContestID"`
+	Match        *Match                  `gorm:"foreignKey:ID;references:ContestID"`
+}
+
+type Match struct {
+	ContestID string                  `gorm:"primaryKey"`
+	Settings  scheduler.MatchSettings `gorm:"embedded"`
+	Data      scheduler.MatchData     `gorm:"embedded"`
 }
 
 type FinishedJobData struct {
@@ -21,15 +31,12 @@ type FinishedJobData struct {
 	PGN    *string
 }
 
-type FinishedJob struct {
-	Job  roomapi.Job     `gorm:"embedded"`
-	Data FinishedJobData `gorm:"embedded"`
-}
-
 var models = []any{
 	&Room{},
-	&RunningJob{},
-	&FinishedJob{},
+	&Contest{},
+	&Match{},
+	&scheduler.RunningJob{},
+	&scheduler.FinishedJob{},
 	&userauth.User{},
 	&userauth.InviteLink{},
 	&userauth.RoomToken{},

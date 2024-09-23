@@ -3,6 +3,7 @@ package roomkeeper
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/alex65536/day20/internal/battle"
@@ -41,8 +42,12 @@ func (k JobStatusKind) IsFinished() bool {
 }
 
 type JobStatus struct {
-	Kind   JobStatusKind
+	Kind   JobStatusKind `gorm:"index"`
 	Reason string
+}
+
+func (s JobStatus) String() string {
+	return fmt.Sprintf("%v(%q)", s.Kind, s.Reason)
 }
 
 func NewStatusUnknown() JobStatus   { return JobStatus{Kind: JobUnknown} }
@@ -75,7 +80,7 @@ type DB interface {
 type Scheduler interface {
 	IsJobAborted(jobID string) (string, bool)
 	NextJob(ctx context.Context) (*roomapi.Job, error)
-	OnJobFinished(ctx context.Context, jobID string, status JobStatus, game *battle.GameExt)
+	OnJobFinished(jobID string, status JobStatus, game *battle.GameExt)
 }
 
 type Options struct {

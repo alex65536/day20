@@ -185,7 +185,7 @@ func (w *Watcher) OnEngineInfo(color chess.Color, status uci.SearchStatus) {
 	} else {
 		pl = w.state.Black
 	}
-	if !pl.Active {
+	if pl.Clock.IsSome() && !pl.Active {
 		panic("must not happen")
 	}
 

@@ -20,8 +20,9 @@
     {{if .WithAuth}}
       {{if .User}}
         <div>
-        Hello, <a href="/profile">{{.User.Username}}</a>!
-        <a href="/logout">Log out</a>
+          Hello, <a href="/profile">{{.User.Username}}</a>!
+          <a href="/logout">Log out</a>
+        </div>
       {{else}}
         <div>
           You are not logged in.

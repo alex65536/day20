@@ -27,6 +27,6 @@
     </script>
     {{template "player" .White}}
     {{template "player" .Black}}
-    <a href="{{.ID | printf "/room/%v/pgn" | asURL}}" target="_blank">PGN</a>
+    <a href="{{.ID | printf "/room/%v/pgn" | asURL}}">PGN</a>
   </div>
 {{end}}

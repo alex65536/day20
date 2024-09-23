@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
 	_ "github.com/alex65536/day20/internal/util/gormutil"
 	"github.com/alex65536/day20/internal/util/sliceutil"
@@ -20,6 +22,8 @@ import (
 	"github.com/wader/gormstore/v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
 )
 
 type Options struct {
@@ -42,12 +46,16 @@ func (o *Options) FillDefaults() {
 type DB struct {
 	db  *gorm.DB
 	log *slog.Logger
+
+	contestDataCols []string
+	matchDataCols   []string
 }
 
 var (
 	_ roomkeeper.DB             = (*DB)(nil)
 	_ userauth.DB               = (*DB)(nil)
 	_ webui.SessionStoreFactory = (*DB)(nil)
+	_ scheduler.DB              = (*DB)(nil)
 )
 
 func (d *DB) Close() {
@@ -76,6 +84,30 @@ func buildPath(o Options) string {
 	return o.Path + "?" + paramStr
 }
 
+func (d *DB) doParseColumns(model any, store *sync.Map) ([]string, error) {
+	s, err := schema.Parse(model, store, d.db.NamingStrategy)
+	if err != nil {
+		return nil, fmt.Errorf("parse schema: %w", err)
+	}
+	return sliceutil.FilterMap(s.Fields, func(f *schema.Field) (string, bool) {
+		return f.DBName, f.DBName != ""
+	}), nil
+}
+
+func (d *DB) parseColumns() error {
+	store := &sync.Map{}
+	var err error
+	d.contestDataCols, err = d.doParseColumns(&scheduler.ContestData{}, store)
+	if err != nil {
+		return fmt.Errorf("parse ContestData: %w", err)
+	}
+	d.matchDataCols, err = d.doParseColumns(&scheduler.MatchData{}, store)
+	if err != nil {
+		return fmt.Errorf("parse MatchData: %w", err)
+	}
+	return nil
+}
+
 func New(log *slog.Logger, o Options) (*DB, error) {
 	o.FillDefaults()
 
@@ -88,6 +120,11 @@ func New(log *slog.Logger, o Options) (*DB, error) {
 	}
 	d := &DB{db: db, log: log}
 
+	if err := d.parseColumns(); err != nil {
+		d.Close()
+		return nil, fmt.Errorf("parse columns: %w", err)
+	}
+
 	log.Info("migrating db")
 	if err := db.AutoMigrate(models...); err != nil {
 		d.Close()
@@ -98,38 +135,6 @@ func New(log *slog.Logger, o Options) (*DB, error) {
 	return d, nil
 }
 
-func (d *DB) CreateRunningJob(ctx context.Context, job roomapi.Job) error {
-	err := d.db.WithContext(ctx).Create(&RunningJob{
-		Job: job,
-	}).Error
-	if err != nil {
-		return fmt.Errorf("create running job: %w", err)
-	}
-	return nil
-}
-
-func (d *DB) FinishRunningJob(ctx context.Context, jobID string, data FinishedJobData) error {
-	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var job RunningJob
-		err := tx.Where("id = ?", jobID).First(&job).Error
-		if err != nil {
-			return fmt.Errorf("find running job: %w", err)
-		}
-		err = tx.Delete(job).Error
-		if err != nil {
-			return fmt.Errorf("delete old job: %w", err)
-		}
-		err = tx.Create(&FinishedJob{
-			Job:  job.Job,
-			Data: data,
-		}).Error
-		if err != nil {
-			return fmt.Errorf("create finished job: %w", err)
-		}
-		return nil
-	})
-}
-
 func (d *DB) ListActiveRooms(ctx context.Context) ([]roomkeeper.RoomFullData, error) {
 	var res []Room
 	err := d.db.WithContext(ctx).Model(&Room{}).Joins("Job").Find(&res).Error
@@ -137,9 +142,13 @@ func (d *DB) ListActiveRooms(ctx context.Context) ([]roomkeeper.RoomFullData, er
 		return nil, fmt.Errorf("list active rooms: %w", err)
 	}
 	data := sliceutil.Map(res, func(r Room) roomkeeper.RoomFullData {
+		var job *roomapi.Job
+		if r.JobID != nil {
+			job = &r.Job.Job
+		}
 		return roomkeeper.RoomFullData{
 			Info: r.Info,
-			Job:  &r.Job.Job,
+			Job:  job,
 		}
 	})
 	return data, nil
@@ -256,15 +265,15 @@ func (d *DB) UpdateUser(ctx context.Context, user userauth.User, srcO ...useraut
 	}
 
 	if o == (userauth.UpdateUserOptions{}) {
-		err := d.db.WithContext(ctx).Save(&user).Error
+		err := d.db.WithContext(ctx).Select("*").Updates(&user).Error
 		if err != nil {
 			return fmt.Errorf("update user: %w", err)
 		}
 		return nil
 	}
 
-	return d.db.WithContext(ctx).Transaction(func (tx *gorm.DB) error {
-		if err := tx.Save(&user).Error; err != nil {
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Select("*").Updates(&user).Error; err != nil {
 			return fmt.Errorf("update user: %w", err)
 		}
 		if !user.Perms.Get(userauth.PermInvite) {
@@ -354,4 +363,132 @@ func (d *DB) NewSessionStore(ctx context.Context, opts webui.SessionOptions) ses
 	s := gormstore.New(d.db, opts.Key)
 	go s.PeriodicCleanup(opts.CleanupInterval, ctx.Done())
 	return s
+}
+
+func (d *DB) buildContestFullData(c Contest) scheduler.ContestFullData {
+	if c.Match != nil {
+		c.Info.Match = &c.Match.Settings
+		c.Data.Match = &c.Match.Data
+	}
+	return scheduler.ContestFullData{
+		Info: c.Info,
+		Data: c.Data,
+		Jobs: c.RunningJobs,
+	}
+}
+
+func (d *DB) ListContests(ctx context.Context) ([]scheduler.ContestFullData, error) {
+	var contests []Contest
+	err := d.db.WithContext(ctx).Preload("Match").Find(&contests).Error
+	if err != nil {
+		return nil, fmt.Errorf("list running contests: %w", err)
+	}
+	return sliceutil.Map(contests, d.buildContestFullData), nil
+}
+
+func (d *DB) ListRunningContestsFull(ctx context.Context) ([]scheduler.ContestFullData, error) {
+	var contests []Contest
+	err := d.db.WithContext(ctx).Preload("RunningJobs").Preload("Match").
+		Where("status_kind = ?", scheduler.ContestRunning).
+		Find(&contests).Error
+	if err != nil {
+		return nil, fmt.Errorf("list running contests: %w", err)
+	}
+	return sliceutil.Map(contests, d.buildContestFullData), nil
+}
+
+func (d *DB) CreateContest(ctx context.Context, info scheduler.ContestInfo, data scheduler.ContestData) error {
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var match *Match
+		if info.Match != nil {
+			match = &Match{
+				ContestID: info.ID,
+				Settings:  *info.Match,
+				Data:      *data.Match,
+			}
+			err := tx.Create(match).Error
+			if err != nil {
+				return fmt.Errorf("create match: %w", err)
+			}
+		}
+		err := tx.Create(&Contest{
+			Info:  info,
+			Data:  data,
+			Match: match,
+		}).Error
+		if err != nil {
+			return fmt.Errorf("create contest: %w", err)
+		}
+		return nil
+	})
+}
+
+func (d *DB) UpdateContest(ctx context.Context, contestID string, data scheduler.ContestData) error {
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if data.Match != nil {
+			err := tx.Select(d.matchDataCols).Where("contest_id = ?", contestID).
+				Updates(&Match{Data: *data.Match}).Error
+			if err != nil {
+				return fmt.Errorf("update match: %w", err)
+			}
+		}
+		err := tx.Select(d.contestDataCols).Where("id = ?", contestID).
+			Updates(&Contest{Data: data}).Error
+		if err != nil {
+			return fmt.Errorf("update contest: %w", err)
+		}
+		return nil
+	})
+}
+
+func (d *DB) GetContest(ctx context.Context, contestID string) (scheduler.ContestInfo, scheduler.ContestData, error) {
+	var contests []Contest
+	err := d.db.WithContext(ctx).Preload("Match").Where("id = ?", contestID).Limit(1).Find(&contests).Error
+	if err != nil {
+		return scheduler.ContestInfo{}, scheduler.ContestData{}, fmt.Errorf("get contest: %w", err)
+	}
+	if len(contests) == 0 {
+		return scheduler.ContestInfo{}, scheduler.ContestData{}, scheduler.ErrNoSuchContest
+	}
+	fullData := d.buildContestFullData(contests[0])
+	return fullData.Info, fullData.Data, nil
+}
+
+func (d *DB) CreateRunningJob(ctx context.Context, job *scheduler.RunningJob) error {
+	err := d.db.WithContext(ctx).Create(job).Error
+	if err != nil {
+		return fmt.Errorf("create running job: %w", err)
+	}
+	return nil
+}
+
+func (d *DB) FinishRunningJob(ctx context.Context, job *scheduler.FinishedJob) error {
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		delTx := tx.Where("id = ?", job.Job.ID).Delete(&scheduler.RunningJob{})
+		if delTx.RowsAffected == 0 {
+			d.log.Warn("trying to finish the job that was never running",
+				slog.String("job_id", job.Job.ID),
+			)
+		}
+		if err := delTx.Error; err != nil {
+			return fmt.Errorf("delete running job: %w", err)
+		}
+		if err := tx.Create(job).Error; err != nil {
+			return fmt.Errorf("create finished job: %w", err)
+		}
+		return nil
+	})
+}
+
+func (d *DB) ListContestSucceededJobs(ctx context.Context, contestID string) ([]scheduler.FinishedJob, error) {
+	var jobs []scheduler.FinishedJob
+	err := d.db.WithContext(ctx).Where("contest_id = ? AND status_kind = ?", contestID, roomkeeper.JobSucceeded).
+		Order([]clause.OrderByColumn{
+			{Column: clause.Column{Name: "index"}},
+			{Column: clause.Column{Name: "job_id"}},
+		}).Find(&jobs).Error
+	if err != nil {
+		return nil, fmt.Errorf("list jobs: %w", err)
+	}
+	return jobs, nil
 }

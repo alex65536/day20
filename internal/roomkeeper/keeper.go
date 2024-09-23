@@ -147,7 +147,7 @@ func (k *Keeper) abortRoomJob(ctx context.Context, log *slog.Logger, r *roomExt,
 	if err := k.db.UpdateRoom(ctx, r.room.ID(), maybe.None[string]()); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
 	}
-	k.sched.OnJobFinished(ctx, curJobID, NewStatusAborted(reason), game)
+	k.sched.OnJobFinished(curJobID, NewStatusAborted(reason), game)
 }
 
 func (k *Keeper) stop(ctx context.Context, r *roomExt) {
@@ -162,7 +162,7 @@ func (k *Keeper) stop(ctx context.Context, r *roomExt) {
 	k.abortRoomJob(ctx, log, r, "room stopped")
 	r.room.Stop(log)
 	if err := k.db.StopRoom(ctx, roomID); err != nil {
-		log.Error("cannot delete room from db", slog.String("room_id", roomID), slogx.Err(err))
+		log.Error("cannot stop room in db", slog.String("room_id", roomID), slogx.Err(err))
 	}
 }
 
@@ -275,7 +275,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 		if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.JobID()); err != nil {
 			log.Error("cannot update room in db", slogx.Err(err))
 		}
-		k.sched.OnJobFinished(ctx, jobID, status, game)
+		k.sched.OnJobFinished(jobID, status, game)
 	}
 
 	if updErr != nil {
@@ -329,6 +329,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 		return nil, fmt.Errorf("poll for job: %w", err)
 	}
 
+	log.Info("job fetched", slog.String("job_id", job.ID))
 	room.room.SetJob(job)
 	if err := k.db.UpdateRoom(ctx, room.room.ID(), maybe.Some(job.ID)); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))
