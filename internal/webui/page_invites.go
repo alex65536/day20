@@ -116,7 +116,7 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 					*perms.GetMut(p) = true
 				}
 			}
-			_, err := cfg.UserManager.GenerateInviteLink(req.FormValue("invite-name"), bc.FullUser, perms)
+			_, err := cfg.UserManager.GenerateInviteLink(ctx, req.FormValue("invite-name"), bc.FullUser, perms)
 			if err != nil {
 				var verifyErr *userauth.ErrorInviteLinkVerify
 				if errors.As(err, &verifyErr) {

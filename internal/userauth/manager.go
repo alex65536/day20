@@ -68,7 +68,7 @@ func NewManager(log *slog.Logger, db DB, o ManagerOptions) (*Manager, error) {
 		done:   make(chan struct{}),
 	}
 	if cnt == 0 {
-		link, err := m.doGenerateInviteLink("invite for owner", nil, OwnerPerms(), false)
+		link, err := m.doGenerateInviteLink(m.ctx, "invite for owner", nil, OwnerPerms(), false)
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("create first invite: %w", err)
@@ -85,7 +85,7 @@ func (m *Manager) Close() {
 	<-m.done
 }
 
-func (m *Manager) doGenerateInviteLink(name string, creator *User, perms Perms, verify bool) (InviteLink, error) {
+func (m *Manager) doGenerateInviteLink(ctx context.Context, name string, creator *User, perms Perms, verify bool) (InviteLink, error) {
 	now := timeutil.NowUTC()
 	var ownerUserID *string
 	if creator != nil {
@@ -111,14 +111,14 @@ func (m *Manager) doGenerateInviteLink(name string, creator *User, perms Perms, 
 	if err := link.GenerateNew(); err != nil {
 		return InviteLink{}, fmt.Errorf("generate: %w", err)
 	}
-	if err := m.CreateInviteLink(m.ctx, link); err != nil {
+	if err := m.CreateInviteLink(ctx, link); err != nil {
 		return InviteLink{}, fmt.Errorf("save to db: %w", err)
 	}
 	return link, nil
 }
 
-func (m *Manager) GenerateInviteLink(name string, creator *User, perms Perms) (InviteLink, error) {
-	return m.doGenerateInviteLink(name, creator, perms, true)
+func (m *Manager) GenerateInviteLink(ctx context.Context, name string, creator *User, perms Perms) (InviteLink, error) {
+	return m.doGenerateInviteLink(ctx, name, creator, perms, true)
 }
 
 func (m *Manager) InviteLinkURL(l InviteLink) string {
