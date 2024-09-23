@@ -30,3 +30,11 @@ func TrivialPtr[T any](a *T) *T {
 	b := *a
 	return &b
 }
+
+func DeepSlice[T Cloner[T]](a []T) []T {
+	res := make([]T, len(a))
+	for i, v := range a {
+		res[i] = v.Clone()
+	}
+	return res
+}
