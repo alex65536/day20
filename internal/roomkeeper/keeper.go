@@ -329,7 +329,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 		return nil, fmt.Errorf("poll for job: %w", err)
 	}
 
-	log.Info("job fetched", slog.String("job_id", job.ID))
+	log.Info("found job for room", slog.String("job_id", job.ID))
 	room.room.SetJob(job)
 	if err := k.db.UpdateRoom(ctx, room.room.ID(), maybe.Some(job.ID)); err != nil {
 		log.Error("cannot update room in db", slogx.Err(err))

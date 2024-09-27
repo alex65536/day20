@@ -59,11 +59,13 @@ func (c *contestExt) Save() {
 	case <-c.dbMu:
 	case <-ctx.Done():
 		c.s.log.Error("could not save contest state", slogx.Err(ctx.Err()))
+		return
 	}
 	defer func() { c.dbMu <- struct{}{} }()
 	err := c.s.db.UpdateContest(ctx, c.sched.Info().ID, c.sched.Data())
 	if err != nil {
 		c.s.log.Error("could not save contest state", slogx.Err(err))
+		return
 	}
 }
 
@@ -178,7 +180,7 @@ func (s *Scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 			}
 			return nil, fmt.Errorf("get job in contest: %w", err)
 		}
-		if err := s.db.CreateRunningJob(ctx, job); err != nil {
+		if err := s.db.CreateRunningJob(context.Background(), job); err != nil {
 			s.log.Error("could not create job in db", slogx.Err(err))
 		}
 		s.mu.Lock()
@@ -229,7 +231,7 @@ func (s *Scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, gam
 			Status:  status,
 			PGN:     nil,
 		}
-		if finishedJob.Status.Kind == roomkeeper.JobSucceeded {
+		if finishedJob.Status.Kind != roomkeeper.JobAborted {
 			finishedJob.Status = roomkeeper.NewStatusAborted(err.Error())
 		}
 		addPGNToJobOrAbort(s.log, finishedJob, game)
@@ -245,9 +247,6 @@ func (s *Scheduler) CreateContest(ctx context.Context, settings ContestSettings)
 
 	contest, err := func() (*contestExt, error) {
 		s.mu.Lock()
-		if len(s.contests) == 0 {
-			s.lastQueuePos = 0
-		}
 		s.lastQueuePos++
 		queuePos := s.lastQueuePos
 		s.mu.Unlock()

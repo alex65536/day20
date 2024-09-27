@@ -116,7 +116,7 @@ func (s *ContestSettings) Validate() error {
 
 func (s ContestSettings) Clone() ContestSettings {
 	s.FixedTime = clone.TrivialPtr(s.FixedTime)
-	s.TimeControl = clone.TrivialPtr(s.TimeControl)
+	s.TimeControl = clone.Ptr(s.TimeControl)
 	s.TimeMargin = clone.TrivialPtr(s.TimeMargin)
 	s.Players = clone.DeepSlice(s.Players)
 	s.Match = clone.Ptr(s.Match)
