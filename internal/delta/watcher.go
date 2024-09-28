@@ -77,6 +77,7 @@ func (w *Watcher) OnGameInited(game *battle.GameExt) {
 		StartPos:    game.Game.StartPos(),
 		TimeControl: game.TimeControl,
 		FixedTime:   game.FixedTime,
+		StartTime:   game.StartTime,
 	}
 
 	board, err := chess.NewBoard(game.Game.StartPos())

@@ -19,6 +19,7 @@ type Info struct {
 	StartPos    chess.RawBoard             `json:"start_pos"`
 	TimeControl maybe.Maybe[clock.Control] `json:"time_control"`
 	FixedTime   maybe.Maybe[time.Duration] `json:"fixed_time"`
+	StartTime   time.Time                  `json:"start_time"`
 }
 
 func (i *Info) PlayerInfo(col chess.Color) string {
@@ -385,6 +386,8 @@ func (s *JobState) GameExt() (*battle.GameExt, error) {
 		Round:       0,
 		TimeControl: clone.Maybe(s.Info.TimeControl),
 		FixedTime:   s.Info.FixedTime,
+		StartTime:   s.Info.StartTime,
+		Event:       "",
 	}, nil
 }
 

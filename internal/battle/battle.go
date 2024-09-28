@@ -33,6 +33,8 @@ type Options struct {
 	// Terminate the game when both sides agree that one of them wins with Score >= ScoreThreshold.
 	// Must be set to zero for no threshold.
 	ScoreThreshold int32
+
+	EventName string
 }
 
 func (o Options) Clone() Options {
@@ -52,6 +54,9 @@ func (o *Options) FillDefaults() {
 	}
 	if o.MaxWaitStop.IsNone() {
 		o.MaxWaitStop = maybe.Some(5 * time.Millisecond)
+	}
+	if o.EventName == "" {
+		o.EventName = "Day20 Battle"
 	}
 }
 
@@ -164,6 +169,8 @@ func (b *Battle) doImpl(ctx context.Context, watcher Watcher) (gameExt *GameExt,
 		Round:       0, // Not specified.
 		TimeControl: clone.Maybe(b.Options.TimeControl),
 		FixedTime:   b.Options.FixedTime,
+		StartTime:   time.Now().Local(),
+		Event:       b.Options.EventName,
 	}
 	for range opening.Len() {
 		gameExt.Scores = append(gameExt.Scores, maybe.None[uci.Score]())

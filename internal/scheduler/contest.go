@@ -261,6 +261,7 @@ func (s *contestScheduler) FinalizeJob(
 		game = clone.TrivialPtr(game) // Yes, TrivialPtr() is intended, since we want a shallow copy.
 		if game != nil {
 			game.Round = int(s.data.LastIndex + 1)
+			game.Event = "Day20: " + s.info.Name
 		}
 	}
 

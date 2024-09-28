@@ -21,6 +21,8 @@ type GameExt struct {
 	Round       int
 	TimeControl maybe.Maybe[clock.Control]
 	FixedTime   maybe.Maybe[time.Duration]
+	StartTime   time.Time
+	Event       string
 }
 
 func sgsSanitize(s string) string {
@@ -119,13 +121,21 @@ func pgnDoWordWrap(b *strings.Builder, s string, maxLineLen int) {
 
 func (g *GameExt) PGN() (string, error) {
 	var b strings.Builder
+	eventStr := g.Event
+	if eventStr == "" {
+		eventStr = "?"
+	}
+	dateStr := "????.??.??"
+	if !g.StartTime.IsZero() {
+		dateStr = g.StartTime.Format(time.DateOnly)
+	}
 	roundStr := "?"
 	if g.Round != 0 {
 		roundStr = strconv.FormatInt(int64(g.Round), 10)
 	}
-	_, _ = b.WriteString(makePGNTag("Event", "Day20 Battle"))
+	_, _ = b.WriteString(makePGNTag("Event", eventStr))
 	_, _ = b.WriteString(makePGNTag("Site", "?"))
-	_, _ = b.WriteString(makePGNTag("Date", "????.??.??"))
+	_, _ = b.WriteString(makePGNTag("Date", dateStr))
 	_, _ = b.WriteString(makePGNTag("Round", roundStr))
 	_, _ = b.WriteString(makePGNTag("White", g.WhiteName))
 	_, _ = b.WriteString(makePGNTag("Black", g.BlackName))
