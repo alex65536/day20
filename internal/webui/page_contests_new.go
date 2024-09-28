@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/scheduler"
@@ -54,6 +55,9 @@ func (contestsNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, er
 			settings.Name = req.FormValue("name")
 			if settings.Name == "" {
 				return "name not specified"
+			}
+			if utf8.RuneCountInString(settings.Name) > scheduler.ContestNameMaxLen {
+				return fmt.Sprintf("name exceeds %v runes", scheduler.ContestNameMaxLen)
 			}
 			switch req.FormValue("time") {
 			case "fixed":

@@ -3,6 +3,7 @@ package scheduler
 import (
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
@@ -12,6 +13,8 @@ import (
 	"github.com/alex65536/go-chess/chess"
 	"github.com/alex65536/go-chess/clock"
 )
+
+const ContestNameMaxLen = 128
 
 type ContestKind int
 
@@ -93,6 +96,12 @@ type ContestSettings struct {
 }
 
 func (s *ContestSettings) Validate() error {
+	if s.Name == "" {
+		return fmt.Errorf("no contest name")
+	}
+	if utf8.RuneCountInString(s.Name) > ContestNameMaxLen {
+		return fmt.Errorf("contest name exceeds %v runes", ContestNameMaxLen)
+	}
 	if s.FixedTime != nil {
 		if *s.FixedTime <= 0 {
 			return fmt.Errorf("non-positive fixed time")
