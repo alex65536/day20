@@ -20,14 +20,14 @@ type Map interface {
 }
 
 type EngineOptions struct {
-	Name                        string                 `toml:"name"`
-	Args                        []string               `toml:"args"`
-	Options                     map[string]interface{} `toml:"options,omitempty"`
-	LogEngineString             bool                   `toml:"log-engine-string"`
-	AllowBadSubstringsInOptions bool                   `toml:"allow-bad-substrings-in-options"`
-	InitTimeout                 *time.Duration         `toml:"init-timeout,omitempty"`
-	WaitOnCancelTimeout         *time.Duration         `toml:"wait-on-cancel-timeout,omitempty"`
-	CreateTimeout               *time.Duration         `toml:"create-timeout,omitempty"`
+	Name                        string         `toml:"name"`
+	Args                        []string       `toml:"args"`
+	Options                     map[string]any `toml:"options,omitempty"`
+	LogEngineString             bool           `toml:"log-engine-string"`
+	AllowBadSubstringsInOptions bool           `toml:"allow-bad-substrings-in-options"`
+	InitTimeout                 *time.Duration `toml:"init-timeout,omitempty"`
+	WaitOnCancelTimeout         *time.Duration `toml:"wait-on-cancel-timeout,omitempty"`
+	CreateTimeout               *time.Duration `toml:"create-timeout,omitempty"`
 }
 
 func cloneTrivial[T any](a *T) *T {
