@@ -77,6 +77,7 @@ func buildPath(o Options) string {
 	}
 	params = append(params, fmt.Sprintf("_busy_timeout=%v", o.BusyTimeout.Milliseconds()))
 	params = append(params, "_foreign_keys=1")
+	params = append(params, "_txlock=immediate")
 	paramStr := strings.Join(params, "&")
 	if paramStr == "" {
 		return o.Path
