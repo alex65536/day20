@@ -262,12 +262,12 @@ func (s *contestScheduler) FinalizeJob(
 		job.Status = roomkeeper.NewStatusAborted("unexpected game result")
 	}
 
-	if job.Status.Kind == roomkeeper.JobSucceeded {
-		game = clone.TrivialPtr(game) // Yes, TrivialPtr() is intended, since we want a shallow copy.
-		if game != nil {
+	game = clone.TrivialPtr(game) // Yes, TrivialPtr() is intended, since we want a shallow copy.
+	if game != nil {
+		if job.Status.Kind == roomkeeper.JobSucceeded {
 			game.Round = int(s.data.LastIndex + 1)
-			game.Event = "Day20: " + s.info.Name
 		}
+		game.Event = "Day20: " + s.info.Name
 	}
 
 	addPGNToJobOrAbort(s.log, job, game)
