@@ -19,8 +19,8 @@ import (
 )
 
 type Options struct {
-	MaxRunningContests int
-	DBSaveTimeout      time.Duration
+	MaxRunningContests int           `toml:"max-running-contests"`
+	DBSaveTimeout      time.Duration `toml:"db-save-timeout"`
 }
 
 func (o Options) Clone() Options {
