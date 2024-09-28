@@ -66,7 +66,7 @@ func NewStatusAborted(reason string) JobStatus {
 
 func NewStatusFailed(reason string) JobStatus {
 	return JobStatus{
-		Kind: JobFailed,
+		Kind:   JobFailed,
 		Reason: reason,
 	}
 }
