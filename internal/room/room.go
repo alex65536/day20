@@ -25,9 +25,10 @@ type Options struct {
 	JobPollDuration time.Duration
 	ByeTimeout      time.Duration
 	RequestTimeout  time.Duration
-	Backoff         backoff.Options
+	RequestBackoff  backoff.Options
 	Watcher         delta.WatcherOptions
 	PingInterval    time.Duration
+	RoomFailBackoff backoff.Options
 }
 
 type Config struct {
@@ -44,9 +45,12 @@ func (o *Options) FillDefaults() {
 	if o.RequestTimeout <= 0 {
 		o.RequestTimeout = 10 * time.Second
 	}
+	o.RequestBackoff.FillDefaults()
+	o.Watcher.FillDefaults()
 	if o.PingInterval == 0 {
 		o.PingInterval = 3 * time.Second
 	}
+	o.RoomFailBackoff.FillDefaults()
 }
 
 func requestWithTimeout[Req, Rsp any](
@@ -93,7 +97,7 @@ func newJob(client roomapi.API, o *Options, cfg *Config, desc *roomapi.Job, room
 }
 
 func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
-	backoff, err := backoff.New(j.o.Backoff)
+	backoff, err := backoff.New(j.o.RequestBackoff)
 	if err != nil {
 		return fmt.Errorf("create backoff: %w", err)
 	}
@@ -334,7 +338,7 @@ func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 	defer r.bye(log)
 
 	log.Info("room started")
-	backoff, err := backoff.New(r.o.Backoff)
+	backoff, err := backoff.New(r.o.RequestBackoff)
 	if err != nil {
 		return fmt.Errorf("create backoff: %w", err)
 	}
@@ -362,6 +366,11 @@ func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 			}
 			if roomapi.MatchesError(err, roomapi.ErrNoJob) {
 				continue
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
 			}
 			log.Warn("error waiting for job", slogx.Err(err))
 			if err := retryBackoff(ctx, backoff, err); err != nil {
@@ -416,9 +425,13 @@ func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 
 	log.Info("room loop started")
 	client := roomapi.NewClient(o.Client, http.DefaultClient)
-	backoff, err := backoff.New(o.Backoff)
+	reqBackoff, err := backoff.New(o.RequestBackoff)
 	if err != nil {
-		return fmt.Errorf("create backoff: %w", err)
+		return fmt.Errorf("create request backoff: %w", err)
+	}
+	failBackoff, err := backoff.New(o.RoomFailBackoff)
+	if err != nil {
+		return fmt.Errorf("create room fail backoff: %w", err)
 	}
 	for {
 		select {
@@ -436,7 +449,7 @@ func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 		)
 		if err != nil {
 			log.Warn("error saying hello", slogx.Err(err))
-			if err := retryBackoff(ctx, backoff, err); err != nil {
+			if err := retryBackoff(ctx, reqBackoff, err); err != nil {
 				return fmt.Errorf("saying hello: %w", err)
 			}
 			continue
@@ -451,8 +464,17 @@ func Loop(ctx context.Context, log *slog.Logger, o Options, cfg Config) error {
 			roomID: rsp.RoomID,
 		}
 		if err := r.Do(ctx, log); err != nil {
-			log.Warn("room failed", slogx.Err(err))
-			return fmt.Errorf("run room: %w", err)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			log.Error("room failed", slogx.Err(err))
+			if err := failBackoff.Retry(ctx, err); err != nil {
+				return fmt.Errorf("run room: %w", err)
+			}
+			continue
 		}
+		failBackoff.Reset()
 	}
 }

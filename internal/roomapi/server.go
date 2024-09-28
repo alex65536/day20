@@ -87,6 +87,16 @@ func makeHandler[Req any, Rsp any](
 
 			rsp, err := fn(ctx, req)
 			if err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					select {
+					case <-ctx.Done():
+						err = &Error{
+							Code: ErrTemporarilyUnavailable,
+							Message: "context canceled or expired",
+						}
+					default:
+					}
+				}
 				if apiErr := (*Error)(nil); errors.As(err, &apiErr) {
 					return err
 				}
@@ -127,6 +137,8 @@ func makeHandler[Req any, Rsp any](
 					code = http.StatusBadRequest
 				case ErrLocked:
 					code = http.StatusConflict
+				case ErrTemporarilyUnavailable:
+					code = http.StatusServiceUnavailable
 				default:
 					code = http.StatusBadRequest
 				}

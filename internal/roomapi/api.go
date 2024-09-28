@@ -28,6 +28,7 @@ const (
 	ErrBadRequest
 	ErrIncompatibleProto
 	ErrLocked
+	ErrTemporarilyUnavailable
 )
 
 func MatchesError(err error, code ErrorCode) bool {
@@ -37,7 +38,7 @@ func MatchesError(err error, code ErrorCode) bool {
 
 func IsErrorRetriable(err error) bool {
 	if apiErr := (*Error)(nil); errors.As(err, &apiErr) {
-		return apiErr.Code == ErrLocked
+		return apiErr.Code == ErrLocked || apiErr.Code == ErrTemporarilyUnavailable
 	}
 	if httpErr := (*httputil.Error)(nil); errors.As(err, &httpErr) {
 		return false
