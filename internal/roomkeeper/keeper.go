@@ -24,6 +24,7 @@ type roomExt struct {
 	mu       sync.Mutex
 	locked   bool
 	lastSeen time.Time
+	seqIndex uint64
 }
 
 func newRoomExt(data RoomFullData) *roomExt {
@@ -31,8 +32,22 @@ func newRoomExt(data RoomFullData) *roomExt {
 		room:     newRoom(data),
 		locked:   false,
 		lastSeen: time.Now(),
+		seqIndex: 0,
 	}
 	return r
+}
+
+func (r *roomExt) CheckSeq(seqIndex uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if seqIndex <= r.seqIndex {
+		return &roomapi.Error{
+			Code:    roomapi.ErrOutOfSequence,
+			Message: "request out of sequence",
+		}
+	}
+	r.seqIndex = seqIndex
+	return nil
 }
 
 func (r *roomExt) Release() {
@@ -225,6 +240,10 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}
 	defer room.Release()
 
+	if err := room.CheckSeq(req.SeqIndex); err != nil {
+		return nil, err
+	}
+
 	log.Info("updating room")
 
 	maybeJobID := room.room.JobID()
@@ -308,6 +327,10 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 		return nil, err
 	}
 	defer room.Release()
+
+	if err := room.CheckSeq(req.SeqIndex); err != nil {
+		return nil, err
+	}
 
 	log.Info("fetching job for room")
 

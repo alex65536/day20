@@ -139,6 +139,8 @@ func makeHandler[Req any, Rsp any](
 					code = http.StatusConflict
 				case ErrTemporarilyUnavailable:
 					code = http.StatusServiceUnavailable
+				case ErrOutOfSequence:
+					code = http.StatusBadRequest
 				default:
 					code = http.StatusBadRequest
 				}

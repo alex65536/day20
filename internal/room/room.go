@@ -76,6 +76,17 @@ func retryBackoff(ctx context.Context, b *backoff.Backoff, err error) error {
 	return b.Retry(ctx, err)
 }
 
+type sequencer uint64
+
+func newSequencer() sequencer {
+	return sequencer(0)
+}
+
+func (s *sequencer) Next() uint64 {
+	(*s)++
+	return uint64(*s)
+}
+
 type job struct {
 	client roomapi.API
 	o      *Options
@@ -83,9 +94,18 @@ type job struct {
 	roomID string
 	log    *slog.Logger
 	mp     enginemap.Map
+	seq    *sequencer
 }
 
-func newJob(client roomapi.API, o *Options, cfg *Config, desc *roomapi.Job, roomID string, log *slog.Logger) *job {
+func newJob(
+	client roomapi.API,
+	o *Options,
+	cfg *Config,
+	desc *roomapi.Job,
+	roomID string,
+	log *slog.Logger,
+	seq *sequencer,
+) *job {
 	return &job{
 		client: client,
 		o:      o,
@@ -93,6 +113,7 @@ func newJob(client roomapi.API, o *Options, cfg *Config, desc *roomapi.Job, room
 		roomID: roomID,
 		log:    log.With(slog.String("job_id", desc.ID)),
 		mp:     cfg.EngineMap,
+		seq:    seq,
 	}
 }
 
@@ -102,6 +123,7 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 		return fmt.Errorf("create backoff: %w", err)
 	}
 	for {
+		upd.SeqIndex = j.seq.Next()
 		_, err := requestWithTimeout(ctx, j.o.RequestTimeout, j.client.Update, upd)
 		if err != nil {
 			j.log.Info("error sending update", slogx.Err(err))
@@ -116,6 +138,7 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 
 func (j *job) prefail(ctx context.Context, failErr error) error {
 	return j.update(ctx, &roomapi.UpdateRequest{
+		// SeqIndex is filled later.
 		RoomID: j.roomID,
 		JobID:  j.desc.ID,
 		From:   delta.JobCursor{},
@@ -216,6 +239,7 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 						panic(fmt.Sprintf("must not happen: %v", err))
 					}
 					if err := j.update(ctx, &roomapi.UpdateRequest{
+						// SeqIndex is filled later.
 						RoomID:    j.roomID,
 						JobID:     j.desc.ID,
 						From:      cursor,
@@ -343,6 +367,7 @@ func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("create backoff: %w", err)
 	}
+	seq := newSequencer()
 	for {
 		rsp, err := func() (*roomapi.JobResponse, error) {
 			rsp, err := requestWithTimeout(
@@ -350,8 +375,9 @@ func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 				r.o.JobPollDuration+r.o.RequestTimeout,
 				r.client.Job,
 				&roomapi.JobRequest{
-					RoomID:  r.roomID,
-					Timeout: r.o.JobPollDuration,
+					SeqIndex: seq.Next(),
+					RoomID:   r.roomID,
+					Timeout:  r.o.JobPollDuration,
 				},
 			)
 			if err != nil {
@@ -382,7 +408,7 @@ func (r *room) Do(ctx context.Context, log *slog.Logger) error {
 		backoff.Reset()
 
 		if err := func() error {
-			job := newJob(r.client, r.o, r.cfg, &rsp.Job, r.roomID, log)
+			job := newJob(r.client, r.o, r.cfg, &rsp.Job, r.roomID, log, &seq)
 			if err := job.Do(ctx); err != nil {
 				return fmt.Errorf("do job: %w", err)
 			}

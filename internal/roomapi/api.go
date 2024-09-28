@@ -29,6 +29,7 @@ const (
 	ErrIncompatibleProto
 	ErrLocked
 	ErrTemporarilyUnavailable
+	ErrOutOfSequence
 )
 
 func MatchesError(err error, code ErrorCode) bool {
@@ -58,6 +59,7 @@ func (e *Error) Error() string {
 var _ error = (*Error)(nil)
 
 type UpdateRequest struct {
+	SeqIndex  uint64          `json:"seq_index"`
 	RoomID    string          `json:"room_id"`
 	JobID     string          `json:"job_id"`
 	From      delta.JobCursor `json:"from"`
@@ -101,8 +103,9 @@ func (j Job) Clone() Job {
 }
 
 type JobRequest struct {
-	RoomID  string        `json:"room_id"`
-	Timeout time.Duration `json:"timeout"`
+	SeqIndex uint64        `json:"seq_index"`
+	RoomID   string        `json:"room_id"`
+	Timeout  time.Duration `json:"timeout"`
 }
 
 type JobResponse struct {
