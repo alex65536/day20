@@ -249,15 +249,17 @@ func (s *contestScheduler) FinalizeJob(
 		PGN:        nil,
 	}
 
-	if job.Status.Kind == roomkeeper.JobSucceeded {
+	if game != nil {
 		job.GameResult = game.Game.Outcome().Status()
-		if job.GameResult != chess.StatusWhiteWins &&
-			job.GameResult != chess.StatusBlackWins &&
-			job.GameResult != chess.StatusDraw {
-			s.log.Warn("bad game outcome in job", slog.String("job_id", jobID))
-			job.Status = roomkeeper.NewStatusAborted("bad game result")
+		switch job.GameResult {
+		case chess.StatusWhiteWins, chess.StatusBlackWins, chess.StatusDraw, chess.StatusRunning:
+		default:
+			s.log.Warn("bad game result", slog.String("job_id", jobID))
 			job.GameResult = chess.StatusRunning
 		}
+	}
+	if job.Status.Kind == roomkeeper.JobSucceeded && job.GameResult == chess.StatusRunning {
+		job.Status = roomkeeper.NewStatusAborted("unexpected game result")
 	}
 
 	if job.Status.Kind == roomkeeper.JobSucceeded {
