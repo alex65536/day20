@@ -91,7 +91,7 @@ func makeHandler[Req any, Rsp any](
 					select {
 					case <-ctx.Done():
 						err = &Error{
-							Code: ErrTemporarilyUnavailable,
+							Code:    ErrTemporarilyUnavailable,
 							Message: "context canceled or expired",
 						}
 					default:

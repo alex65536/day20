@@ -312,7 +312,7 @@ func (j *job) Do(ctx context.Context) error {
 		if err != nil {
 			panic(fmt.Sprintf("state contains corrupted game: %v", err))
 		}
-		gameFromState.Event = game.Event  // Event is not considered in the state and is allowed to diverge.
+		gameFromState.Event = game.Event // Event is not considered in the state and is allowed to diverge.
 		if !reflect.DeepEqual(game, gameFromState) {
 			panic("real game diverged from the state")
 		}
