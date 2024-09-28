@@ -75,7 +75,7 @@ func (k PermKind) PrettyString() string {
 }
 
 type Perms struct {
-	IsOwner   bool
+	IsOwner   bool `gorm:"index"`
 	IsBlocked bool
 
 	CanInvite      bool

@@ -292,13 +292,13 @@ func (d *DB) UpdateUser(ctx context.Context, user userauth.User, srcO ...useraut
 	})
 }
 
-func (d *DB) CountUsers(ctx context.Context) (int64, error) {
-	var cnt int64
-	err := d.db.WithContext(ctx).Model(&userauth.User{}).Count(&cnt).Error
+func (d *DB) HasOwnerUser(ctx context.Context) (bool, error) {
+	var users []userauth.User
+	err := d.db.WithContext(ctx).Limit(1).Find(&users).Error
 	if err != nil {
-		return 0, fmt.Errorf("count users: %w", err)
+		return false, fmt.Errorf("check for owner user: %w", err)
 	}
-	return cnt, nil
+	return len(users) == 1, nil
 }
 
 func (d *DB) ListUsers(ctx context.Context) ([]userauth.User, error) {

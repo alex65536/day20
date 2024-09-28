@@ -53,12 +53,11 @@ func NewManager(log *slog.Logger, db DB, o ManagerOptions) (*Manager, error) {
 	o = o.Clone()
 	o.FillDefaults()
 	ctx, cancel := context.WithCancel(context.Background())
-	cnt, err := db.CountUsers(ctx)
+	hasOwner, err := db.HasOwnerUser(ctx)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("count users: %w", err)
+		return nil, fmt.Errorf("check for owner user: %w", err)
 	}
-	log.Info("found users", slog.Int64("count", cnt))
 	m := &Manager{
 		DB:     db,
 		o:      &o,
@@ -67,7 +66,7 @@ func NewManager(log *slog.Logger, db DB, o ManagerOptions) (*Manager, error) {
 		cancel: cancel,
 		done:   make(chan struct{}),
 	}
-	if cnt == 0 {
+	if !hasOwner {
 		link, err := m.doGenerateInviteLink(m.ctx, "invite for owner", nil, OwnerPerms(), false)
 		if err != nil {
 			cancel()

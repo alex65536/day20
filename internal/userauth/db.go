@@ -28,7 +28,7 @@ type DB interface {
 	GetUserByUsername(ctx context.Context, username string, o ...GetUserOptions) (User, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	UpdateUser(ctx context.Context, user User, o ...UpdateUserOptions) error
-	CountUsers(ctx context.Context) (int64, error)
+	HasOwnerUser(ctx context.Context) (bool, error)
 	CreateInviteLink(ctx context.Context, link InviteLink) error
 	GetInviteLink(ctx context.Context, linkHash string, now timeutil.UTCTime) (InviteLink, error)
 	PruneInviteLinks(ctx context.Context, now timeutil.UTCTime) error
