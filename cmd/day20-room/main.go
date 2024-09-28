@@ -31,63 +31,52 @@ This command runs Day20 room client.
 }
 
 func main() {
-	defaultTokenFile := ""
-	confDir, err := os.UserConfigDir()
-	if err != nil {
-		defaultTokenFile = filepath.Join(confDir, "day20", "token")
+	p := roomCmd.Flags()
+	optsPath := p.StringP(
+		"options", "o", "",
+		"options file",
+	)
+	if err := roomCmd.MarkFlagRequired("options"); err != nil {
+		panic(err)
 	}
 
-	p := roomCmd.Flags()
-	count := p.IntP(
-		"count", "c", 1,
-		"number of rooms to run")
-	endpoint := p.StringP(
-		"endpoint", "e", "",
-		"room server endpoint")
-	tokenFile := p.StringP(
-		"token-file", "T", defaultTokenFile,
-		"file with API token\n(ignored if DAY20_ROOM_TOKEN env is present)")
-	engineMapText := p.StringP(
-		"engine-map", "M", "",
-		"engine map (inline, in toml format)",
-	)
-	// TODO: invent a single config
-	engineMapFile := p.StringP(
-		"engine-map-file", "m", "",
-		"engine map file (in toml format)",
-	)
-	roomCmd.MarkFlagsMutuallyExclusive("engine-map", "engine-map-file")
-	roomCmd.MarkFlagsOneRequired("engine-map", "engine-map-file")
-
 	roomCmd.RunE = func(cmd *cobra.Command, _args []string) error {
+		var opts Options
+		optsData, err := os.ReadFile(*optsPath)
+		if err != nil {
+			return fmt.Errorf("read options file: %w", err)
+		}
+		if err := toml.Unmarshal(optsData, &opts); err != nil {
+			return fmt.Errorf("unmarshal options file: %w", err)
+		}
+		opts.FillDefaults()
+
+		if opts.Rooms <= 0 {
+			return fmt.Errorf("non-positive number of rooms")
+		}
+		if opts.URL == "" {
+			return fmt.Errorf("room api url not specified in options")
+		}
+		if opts.Engines == nil {
+			return fmt.Errorf("engine map not specified in options")
+		}
+
 		var token string
-		if *tokenFile != "" {
-			data, err := os.ReadFile(*tokenFile)
+		if env := os.Getenv("DAY20_ROOM_TOKEN"); env != "" && opts.TokenFile == "" {
+			token = strings.TrimSpace(env)
+		} else {
+			if opts.TokenFile == "" {
+				confDir, err := os.UserConfigDir()
+				if err != nil {
+					return fmt.Errorf("could not locate token")
+				}
+				opts.TokenFile = filepath.Join(confDir, "day20", "token")
+			}
+			data, err := os.ReadFile(opts.TokenFile)
 			if err != nil {
 				return fmt.Errorf("read token file: %w", err)
 			}
 			token = strings.TrimSpace(string(data))
-		} else if env := os.Getenv("DAY20_ROOM_TOKEN"); env != "" {
-			token = env
-		} else {
-			return fmt.Errorf("token not specified")
-		}
-
-		var engineMapOpts enginemap.Options
-		if *engineMapFile != "" {
-			data, err := os.ReadFile(*engineMapFile)
-			if err != nil {
-				return fmt.Errorf("read engine map file: %w", err)
-			}
-			if err := toml.Unmarshal(data, &engineMapOpts); err != nil {
-				return fmt.Errorf("unmarshal engine map: %w", err)
-			}
-		} else if *engineMapText != "" {
-			if err := toml.Unmarshal([]byte(*engineMapText), &engineMapOpts); err != nil {
-				return fmt.Errorf("unmarshal engine map: %w", err)
-			}
-		} else {
-			return fmt.Errorf("neither engine map file nor engine map specified")
 		}
 
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -97,15 +86,15 @@ func main() {
 		log := slog.Default()
 
 		group, gctx := errgroup.WithContext(ctx)
-		for range *count {
+		for range opts.Rooms {
 			group.Go(func() error {
 				return room.Loop(gctx, log, room.Options{
 					Client: roomapi.ClientOptions{
-						Endpoint: *endpoint,
+						Endpoint: opts.URL,
 						Token:    token,
 					},
 				}, room.Config{
-					EngineMap: enginemap.New(engineMapOpts),
+					EngineMap: enginemap.New(*opts.Engines),
 				})
 			})
 		}
