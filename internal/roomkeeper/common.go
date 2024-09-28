@@ -87,6 +87,7 @@ type Options struct {
 	MaxJobFetchTimeout  time.Duration `toml:"max-job-fetch-timeout"`
 	RoomLivenessTimeout time.Duration `toml:"room-liveness-timeout"`
 	GCInterval          time.Duration `toml:"gc-interval"`
+	DBSaveTimeout       time.Duration `toml:"db-save-timeout"`
 }
 
 func (o *Options) FillDefaults() {
@@ -98,5 +99,8 @@ func (o *Options) FillDefaults() {
 	}
 	if o.GCInterval == 0 {
 		o.GCInterval = max(500*time.Millisecond, o.RoomLivenessTimeout/5)
+	}
+	if o.DBSaveTimeout == 0 {
+		o.DBSaveTimeout = 10 * time.Second
 	}
 }

@@ -119,7 +119,7 @@ func (k *Keeper) gc() {
 				}
 			}()
 			for _, room := range roomsToStop {
-				k.stop(k.gctx, room)
+				k.stop(k.log, room)
 			}
 		case <-k.gctx.Done():
 			return
@@ -127,7 +127,15 @@ func (k *Keeper) gc() {
 	}
 }
 
-func (k *Keeper) abortRoomJob(ctx context.Context, log *slog.Logger, r *roomExt, reason string) {
+func (k *Keeper) saveRoomDB(log *slog.Logger, roomID string, jobID maybe.Maybe[string]) {
+	ctx, cancel := context.WithTimeout(context.Background(), k.opts.DBSaveTimeout)
+	defer cancel()
+	if err := k.db.UpdateRoom(ctx, roomID, jobID); err != nil {
+		log.Error("cannot save room in db", slogx.Err(err))
+	}
+}
+
+func (k *Keeper) abortRoomJob(log *slog.Logger, r *roomExt, reason string) {
 	maybeCurJobID := r.room.JobID()
 	if maybeCurJobID.IsNone() {
 		return
@@ -144,23 +152,22 @@ func (k *Keeper) abortRoomJob(ctx context.Context, log *slog.Logger, r *roomExt,
 		game = nil
 	}
 	r.room.SetJob(nil)
-	if err := k.db.UpdateRoom(ctx, r.room.ID(), maybe.None[string]()); err != nil {
-		log.Error("cannot update room in db", slogx.Err(err))
-	}
+	k.saveRoomDB(log, r.room.ID(), maybe.None[string]())
 	k.sched.OnJobFinished(curJobID, NewStatusAborted(reason), game)
 }
 
-func (k *Keeper) stop(ctx context.Context, r *roomExt) {
+func (k *Keeper) stop(log *slog.Logger, r *roomExt) {
 	r.mu.Lock()
 	locked := r.locked
 	r.mu.Unlock()
 	if !locked {
 		panic("must not happen")
 	}
-	log := k.logFromCtx(ctx)
 	roomID := r.room.ID()
-	k.abortRoomJob(ctx, log, r, "room stopped")
+	k.abortRoomJob(log, r, "room stopped")
 	r.room.Stop(log)
+	ctx, cancel := context.WithTimeout(context.Background(), k.opts.DBSaveTimeout)
+	defer cancel()
 	if err := k.db.StopRoom(ctx, roomID); err != nil {
 		log.Error("cannot stop room in db", slog.String("room_id", roomID), slogx.Err(err))
 	}
@@ -233,7 +240,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 			slog.String("exp_job_id", jobID),
 			slog.String("got_job_id", req.JobID),
 		)
-		k.abortRoomJob(ctx, log, room, "job lost by room")
+		k.abortRoomJob(log, room, "job lost by room")
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job id mismatched",
@@ -241,7 +248,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}
 
 	if reason, ok := k.sched.IsJobAborted(jobID); ok {
-		k.abortRoomJob(ctx, log, room, fmt.Sprintf("job aborted by scheduler: %v", reason))
+		k.abortRoomJob(log, room, fmt.Sprintf("job aborted by scheduler: %v", reason))
 		return nil, &roomapi.Error{
 			Code:    roomapi.ErrNoJobRunning,
 			Message: "job has just been canceled",
@@ -272,9 +279,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 	}()
 
 	if status.Kind.IsFinished() {
-		if err := k.db.UpdateRoom(ctx, room.room.ID(), room.room.JobID()); err != nil {
-			log.Error("cannot update room in db", slogx.Err(err))
-		}
+		k.saveRoomDB(log, room.room.ID(), room.room.JobID())
 		k.sched.OnJobFinished(jobID, status, game)
 	}
 
@@ -306,7 +311,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 
 	log.Info("fetching job for room")
 
-	k.abortRoomJob(ctx, log, room, "job lost by room")
+	k.abortRoomJob(log, room, "job lost by room")
 
 	subctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -331,9 +336,7 @@ func (k *Keeper) Job(ctx context.Context, req *roomapi.JobRequest) (*roomapi.Job
 
 	log.Info("found job for room", slog.String("job_id", job.ID))
 	room.room.SetJob(job)
-	if err := k.db.UpdateRoom(ctx, room.room.ID(), maybe.Some(job.ID)); err != nil {
-		log.Error("cannot update room in db", slogx.Err(err))
-	}
+	k.saveRoomDB(log, room.room.ID(), maybe.Some(job.ID))
 
 	return &roomapi.JobResponse{
 		Job: job.Clone(),
@@ -375,7 +378,8 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 	log.Info("created room")
 
 	if err := k.db.CreateRoom(ctx, data.Info); err != nil {
-		log.Error("cannot create room in db", slogx.Err(err))
+		log.Warn("cannot create room in db", slogx.Err(err))
+		_, _ = k.Bye(ctx, &roomapi.ByeRequest{RoomID: roomID})
 		return nil, fmt.Errorf("create room in db: %w", err)
 	}
 
@@ -399,7 +403,7 @@ func (k *Keeper) Bye(ctx context.Context, req *roomapi.ByeRequest) (*roomapi.Bye
 	delete(k.rooms, room.room.ID())
 	k.mu.Unlock()
 
-	k.stop(ctx, room)
+	k.stop(log, room)
 
 	return &roomapi.ByeResponse{}, nil
 }
