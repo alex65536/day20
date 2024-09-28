@@ -17,6 +17,7 @@ import (
 	"github.com/alex65536/day20/internal/util/idgen"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/go-chess/util/maybe"
+	"github.com/dustinkirkland/golang-petname"
 )
 
 type roomExt struct {
@@ -390,7 +391,7 @@ func (k *Keeper) Hello(ctx context.Context, req *roomapi.HelloRequest) (*roomapi
 		data = RoomFullData{
 			Info: RoomInfo{
 				ID:   roomID,
-				Name: roomID, // TODO: generate nice room names!
+				Name: petname.Generate(3, "-"),
 			},
 			Job: nil,
 		}

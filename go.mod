@@ -5,6 +5,7 @@ go 1.22.1
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/alex65536/go-chess v0.9.3
+	github.com/dustinkirkland/golang-petname v0.0.0-20240428194347-eebcea082ee0
 	github.com/gorilla/csrf v1.7.2
 	github.com/gorilla/sessions v1.3.0
 	github.com/gorilla/websocket v1.5.3
