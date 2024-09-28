@@ -283,7 +283,7 @@ func (k *Keeper) Update(ctx context.Context, req *roomapi.UpdateRequest) (*rooma
 			if err != nil {
 				game = nil
 				log.Warn("cannot create resulting game", slogx.Err(err))
-				if status.Kind != JobAborted {
+				if status.Kind == JobSucceeded {
 					status = NewStatusAborted("job cannot be collected into game")
 				}
 				if updErr == nil {

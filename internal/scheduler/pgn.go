@@ -12,7 +12,7 @@ func addPGNToJobOrAbort(log *slog.Logger, job *FinishedJob, game *battle.GameExt
 	job.PGN = nil
 
 	if game == nil {
-		if job.Status.Kind != roomkeeper.JobAborted {
+		if job.Status.Kind == roomkeeper.JobSucceeded {
 			job.Status = roomkeeper.NewStatusAborted("no game found in job")
 		}
 		return
@@ -21,7 +21,7 @@ func addPGNToJobOrAbort(log *slog.Logger, job *FinishedJob, game *battle.GameExt
 	pgn, err := game.PGN()
 	if err != nil {
 		log.Warn("could not convert the game into PGN", slogx.Err(err))
-		if job.Status.Kind != roomkeeper.JobAborted {
+		if job.Status.Kind == roomkeeper.JobSucceeded {
 			job.Status = roomkeeper.NewStatusAborted("game cannot be converted into PGN")
 		}
 		return

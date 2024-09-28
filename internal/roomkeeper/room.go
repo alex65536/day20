@@ -153,13 +153,22 @@ func (r *room) Update(log *slog.Logger, req *roomapi.UpdateRequest) (JobStatus, 
 		}
 	}()
 
-	if req.Done {
-		if req.Error == "" {
-			status = NewStatusSucceeded()
-		} else {
-			log.Warn("received error update", slog.String("err", req.Error))
-			status = NewStatusAborted(fmt.Sprintf("error: %v", req.Error))
-		}
+	switch req.Status {
+	case roomapi.UpdateContinue:
+	case roomapi.UpdateDone:
+		status = NewStatusSucceeded()
+	case roomapi.UpdateAbort:
+		log.Info("received abort update", slog.String("err", req.Error))
+		status = NewStatusAborted(fmt.Sprintf("error: %v", req.Error))
+	case roomapi.UpdateFail:
+		log.Info("received fail update", slog.String("err", req.Error))
+		status = NewStatusFailed(fmt.Sprintf("error: %v", req.Error))
+	default:
+		log.Warn("received bad update",
+			slog.String("err", req.Error),
+			slog.String("status", string(req.Status)),
+		)
+		status = NewStatusAborted("job finished with unrecognized status")
 	}
 
 	if req.Delta != nil {

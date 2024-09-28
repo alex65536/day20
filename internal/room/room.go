@@ -136,14 +136,14 @@ func (j *job) update(ctx context.Context, upd *roomapi.UpdateRequest) error {
 	}
 }
 
-func (j *job) prefail(ctx context.Context, failErr error) error {
+func (j *job) preFinish(ctx context.Context, status roomapi.UpdateStatus, failErr error) error {
 	return j.update(ctx, &roomapi.UpdateRequest{
 		// SeqIndex is filled later.
 		RoomID: j.roomID,
 		JobID:  j.desc.ID,
 		From:   delta.JobCursor{},
 		Delta:  &delta.JobState{},
-		Done:   true,
+		Status: status,
 		Error:  failErr.Error(),
 	})
 }
@@ -231,7 +231,7 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 		updateCh <- func() error {
 			cursor := delta.JobCursor{}
 
-			doSend := func(done bool) error {
+			doSend := func(status roomapi.UpdateStatus) error {
 				var emptyCursor delta.JobCursor
 				for {
 					dd, newCursor, err := watcher.StateDelta(cursor)
@@ -245,7 +245,7 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 						From:      cursor,
 						Delta:     dd,
 						Timestamp: delta.NowTimestamp(),
-						Done:      done,
+						Status:    status,
 					}); err != nil {
 						if roomapi.MatchesError(err, roomapi.ErrNeedsResync) && cursor != emptyCursor {
 							cursor = emptyCursor
@@ -265,16 +265,16 @@ func (j *job) watchUpdates(ctx context.Context, watcher *delta.Watcher, upd <-ch
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-watcher.Done():
-					if err := doSend(true); err != nil {
+					if err := doSend(roomapi.UpdateDone); err != nil {
 						return err
 					}
 					return nil
 				case <-ticker.C:
-					if err := doSend(false); err != nil {
+					if err := doSend(roomapi.UpdateContinue); err != nil {
 						return err
 					}
 				case <-upd:
-					if err := doSend(false); err != nil {
+					if err := doSend(roomapi.UpdateContinue); err != nil {
 						return err
 					}
 				}
@@ -292,9 +292,15 @@ func (j *job) Do(ctx context.Context) error {
 
 	battle, err := j.makeBattle(ctx)
 	if err != nil {
-		j.log.Error("cannot make battle", slogx.Err(err))
-		if err := j.prefail(ctx, fmt.Errorf("make battle: %w", err)); err != nil {
-			return fmt.Errorf("prefail: %w", err)
+		status := roomapi.UpdateFail
+		select {
+		case <-ctx.Done():
+			status = roomapi.UpdateAbort
+		default:
+			j.log.Error("cannot make battle", slogx.Err(err))
+		}
+		if err := j.preFinish(ctx, status, fmt.Errorf("make battle: %w", err)); err != nil {
+			return fmt.Errorf("prefinish: %w", err)
 		}
 		return nil
 	}
@@ -312,8 +318,8 @@ func (j *job) Do(ctx context.Context) error {
 	if err != nil {
 		<-updateCh
 		j.log.Error("cannot run battle", slogx.Err(err))
-		if err := j.prefail(ctx, fmt.Errorf("run battle: %w", err)); err != nil {
-			return fmt.Errorf("prefail: %w", err)
+		if err := j.preFinish(ctx, roomapi.UpdateFail, fmt.Errorf("run battle: %w", err)); err != nil {
+			return fmt.Errorf("prefinish: %w", err)
 		}
 		return nil
 	}

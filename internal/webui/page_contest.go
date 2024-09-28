@@ -94,7 +94,7 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 				WinnerConfidence: confidence,
 				LOS:              status.LOS(),
 				EloDiff:          status.EloDiff(0.95),
-				CanCancel:        canCancel && data.Status.Kind == scheduler.ContestRunning,
+				CanCancel:        canCancel && !data.Status.Kind.IsFinished(),
 				CSRFField:        csrf.TemplateField(req),
 				FixedTime:        fixedTime,
 				TimeControl:      timeControl,

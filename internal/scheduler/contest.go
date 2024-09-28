@@ -17,12 +17,13 @@ import (
 	"github.com/alex65536/go-chess/chess"
 )
 
-var errContestStopped = errors.New("contest stopped, no new jobs")
+var errContestFinished = errors.New("contest finished, no new jobs")
 
 type contestScheduler struct {
 	log  *slog.Logger
 	info *ContestInfo
 	book opening.Book
+	opts *Options
 
 	mu     sync.RWMutex
 	data   ContestData
@@ -34,12 +35,13 @@ type contestScheduler struct {
 
 func newContestScheduler(
 	log *slog.Logger,
+	opts *Options,
 	info *ContestInfo,
 	data ContestData,
 	jobs []*RunningJob,
 ) (*contestScheduler, error) {
 	data = data.Clone()
-	if data.Status.Kind != ContestRunning {
+	if data.Status.Kind.IsFinished() {
 		panic("must not happen")
 	}
 
@@ -68,6 +70,7 @@ func newContestScheduler(
 		log:  log,
 		info: info,
 		book: book,
+		opts: opts,
 
 		data:   data,
 		jobs:   jobMap,
@@ -79,12 +82,12 @@ func newContestScheduler(
 	return cs, nil
 }
 
-func (s *contestScheduler) isStoppedUnlocked() bool {
-	return s.data.Status.Kind != ContestRunning
+func (s *contestScheduler) isFinishedUnlocked() bool {
+	return s.data.Status.Kind.IsFinished()
 }
 
 func (s *contestScheduler) onUpdatedUnlocked() {
-	if s.isStoppedUnlocked() {
+	if s.isFinishedUnlocked() {
 		if !s.closed {
 			close(s.notify)
 			s.closed = true
@@ -102,8 +105,8 @@ func (s *contestScheduler) onUpdatedUnlocked() {
 func (s *contestScheduler) getJob() (*RunningJob, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.isStoppedUnlocked() {
-		return nil, false, errContestStopped
+	if s.isFinishedUnlocked() {
+		return nil, false, errContestFinished
 	}
 	k, ok := s.sched.Peek()
 	if !ok {
@@ -147,10 +150,10 @@ func (s *contestScheduler) getJob() (*RunningJob, bool, error) {
 	return job, true, nil
 }
 
-func (s *contestScheduler) IsStopped() bool {
+func (s *contestScheduler) IsFinished() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.isStoppedUnlocked()
+	return s.isFinishedUnlocked()
 }
 
 func (s *contestScheduler) Info() *ContestInfo {
@@ -172,19 +175,19 @@ func (s *contestScheduler) Data() ContestData {
 func (s *contestScheduler) Abort(reason string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.isStoppedUnlocked() {
+	if s.isFinishedUnlocked() {
 		return
 	}
 	s.jobs = make(map[string]*RunningJob)
-	s.data.Status = NewContestAborted(reason)
+	s.data.Status = NewStatusAborted(reason)
 	s.onUpdatedUnlocked()
 }
 
 func (s *contestScheduler) IsJobAborted(jobID string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.isStoppedUnlocked() {
-		return "contest stopped", true
+	if s.isFinishedUnlocked() {
+		return "contest finished", true
 	}
 	_, ok := s.jobs[jobID]
 	if ok {
@@ -205,7 +208,7 @@ func (s *contestScheduler) NextJob(ctx context.Context) (*RunningJob, error) {
 		select {
 		case _, ok := <-s.notify:
 			if !ok {
-				return nil, errContestStopped
+				return nil, errContestFinished
 			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -225,9 +228,9 @@ func (s *contestScheduler) FinalizeJob(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.isStoppedUnlocked() {
-		s.log.Info("got job after contest stopped", slog.String("job_id", jobID), slog.String("status", srcStatus.String()))
-		return nil, fmt.Errorf("got job after contest stopped")
+	if s.isFinishedUnlocked() {
+		s.log.Info("got job after contest finished", slog.String("job_id", jobID), slog.String("status", srcStatus.String()))
+		return nil, fmt.Errorf("got job after contest finished")
 	}
 	runningJob, ok := s.jobs[jobID]
 	if !ok {
@@ -270,6 +273,13 @@ func (s *contestScheduler) FinalizeJob(
 	switch job.Status.Kind {
 	case roomkeeper.JobAborted:
 		s.sched.Inc(job.ScheduleKey())
+	case roomkeeper.JobFailed:
+		s.sched.Inc(job.ScheduleKey())
+		s.data.FailedJobs++
+		if s.data.FailedJobs > int64(s.opts.MaxFailedJobs) {
+			s.jobs = make(map[string]*RunningJob)
+			s.data.Status = NewStatusFailed(fmt.Sprintf("too many failed jobs (%v)", s.data.FailedJobs))
+		}
 	case roomkeeper.JobSucceeded:
 		s.data.LastIndex++
 		job.Index = s.data.LastIndex
@@ -301,7 +311,7 @@ func (s *contestScheduler) FinalizeJob(
 			panic("bad contest kind")
 		}
 		if len(s.jobs) == 0 && s.sched.Empty() {
-			s.data.Status = NewContestSucceeded()
+			s.data.Status = NewStatusSucceeded()
 		}
 	default:
 		panic("bad job kind")

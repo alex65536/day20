@@ -21,6 +21,7 @@ import (
 type Options struct {
 	MaxRunningContests int           `toml:"max-running-contests"`
 	DBSaveTimeout      time.Duration `toml:"db-save-timeout"`
+	MaxFailedJobs      int64         `toml:"max-failed-jobs"`
 }
 
 func (o Options) Clone() Options {
@@ -33,6 +34,9 @@ func (o *Options) FillDefaults() {
 	}
 	if o.DBSaveTimeout == 0 {
 		o.DBSaveTimeout = 10 * time.Second
+	}
+	if o.MaxFailedJobs == 0 {
+		o.MaxFailedJobs = 10
 	}
 }
 
@@ -93,7 +97,7 @@ func (h *contestHeap) Pop() any {
 }
 
 type Scheduler struct {
-	o   Options
+	o   *Options
 	db  DB
 	log *slog.Logger
 
@@ -125,7 +129,7 @@ func (s *Scheduler) acquireContest(ctx context.Context) (*contestExt, error) {
 				}
 				contestID := s.heap[0].ContestID
 				contest, ok := s.contests[contestID]
-				if !ok || contest.sched.IsStopped() {
+				if !ok || contest.sched.IsFinished() {
 					heap.Pop(&s.heap)
 					delete(s.contests, contestID)
 					continue
@@ -145,8 +149,8 @@ func (s *Scheduler) acquireContest(ctx context.Context) (*contestExt, error) {
 	}
 }
 
-func (s *Scheduler) delContestIfStopped(contest *contestExt) {
-	if contest.sched.IsStopped() {
+func (s *Scheduler) delContestIfFinished(contest *contestExt) {
+	if contest.sched.IsFinished() {
 		s.mu.Lock()
 		delete(s.contests, contest.sched.Info().ID)
 		s.mu.Unlock()
@@ -162,7 +166,7 @@ func (s *Scheduler) IsJobAborted(jobID string) (string, bool) {
 	}
 	contest, ok := s.contests[job.ContestID]
 	if !ok {
-		return "contest stopped", true
+		return "contest finished", true
 	}
 	return contest.sched.IsJobAborted(jobID)
 }
@@ -175,7 +179,7 @@ func (s *Scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 		}
 		job, err := contest.sched.NextJob(ctx)
 		if err != nil {
-			if errors.Is(err, errContestStopped) {
+			if errors.Is(err, errContestFinished) {
 				continue
 			}
 			return nil, fmt.Errorf("get job in contest: %w", err)
@@ -217,16 +221,16 @@ func (s *Scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, gam
 
 	finishedJob, err := func() (*FinishedJob, error) {
 		if !contestOk {
-			s.log.Info("got job after contest stopped", slog.String("job_id", jobID), slog.String("status", status.String()))
-			return nil, fmt.Errorf("got job after contest stopped")
+			s.log.Info("got job after contest finished", slog.String("job_id", jobID), slog.String("status", status.String()))
+			return nil, fmt.Errorf("got job after contest finished")
 		}
 		job, err := contest.sched.FinalizeJob(jobID, status, game)
 		contest.Save()
-		s.delContestIfStopped(contest)
+		s.delContestIfFinished(contest)
 		return job, err
 	}()
 	if err != nil {
-		finishedJob := &FinishedJob{
+		finishedJob = &FinishedJob{
 			JobInfo: job.JobInfo.Clone(),
 			Status:  status,
 			PGN:     nil,
@@ -256,7 +260,7 @@ func (s *Scheduler) CreateContest(ctx context.Context, settings ContestSettings)
 			PosInQueue:      queuePos,
 		}
 		data := info.NewData()
-		sched, err := newContestScheduler(s.log, &info, data, nil)
+		sched, err := newContestScheduler(s.log, s.o, &info, data, nil)
 		if err != nil {
 			return nil, fmt.Errorf("create contest scheduler: %w", err)
 		}
@@ -292,7 +296,7 @@ func (s *Scheduler) AbortContest(contestID string, reason string) {
 	}
 	contest.sched.Abort(reason)
 	contest.Save()
-	s.delContestIfStopped(contest)
+	s.delContestIfFinished(contest)
 }
 
 func (s *Scheduler) GetContest(ctx context.Context, contestID string) (ContestInfo, ContestData, error) {
@@ -335,7 +339,7 @@ func (s *Scheduler) ListRunningContests() []ContestFullData {
 	}()
 	res := sliceutil.FilterMap(contests, func(sched *contestScheduler) (ContestFullData, bool) {
 		data := sched.Data()
-		if data.Status.Kind != ContestRunning {
+		if data.Status.Kind.IsFinished() {
 			return ContestFullData{}, false
 		}
 		return ContestFullData{
@@ -395,11 +399,11 @@ func New(ctx context.Context, log *slog.Logger, db DB, o Options) (*Scheduler, e
 
 		info := clone.Ptr(&dbContest.Info)
 		data := dbContest.Data.Clone()
-		sched, err := newContestScheduler(log, info, data, contestJobs)
+		sched, err := newContestScheduler(log, &o, info, data, contestJobs)
 		if err != nil {
 			log.Warn("could not create contest scheduler, aborting",
 				slog.String("contest_id", info.ID), slogx.Err(err))
-			data.Status = NewContestAborted("could not schedule contest")
+			data.Status = NewStatusAborted("could not schedule contest")
 			if err := db.UpdateContest(ctx, info.ID, data); err != nil {
 				log.Warn("could not abort contest", slog.String("contest_id", info.ID), slogx.Err(err))
 				return nil, fmt.Errorf("abort contest: %w", err)
@@ -422,7 +426,7 @@ func New(ctx context.Context, log *slog.Logger, db DB, o Options) (*Scheduler, e
 	}
 
 	s := &Scheduler{
-		o:            o,
+		o:            &o,
 		db:           db,
 		log:          log,
 		jobs:         jobs,

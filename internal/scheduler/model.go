@@ -36,6 +36,7 @@ const (
 	ContestRunning
 	ContestSucceeded
 	ContestAborted
+	ContestFailed
 )
 
 func (k ContestStatusKind) PrettyString() string {
@@ -46,9 +47,15 @@ func (k ContestStatusKind) PrettyString() string {
 		return "Finished"
 	case ContestAborted:
 		return "Aborted"
+	case ContestFailed:
+		return "Failed"
 	default:
 		return "?"
 	}
+}
+
+func (k ContestStatusKind) IsFinished() bool {
+	return k == ContestSucceeded || k == ContestAborted || k == ContestFailed
 }
 
 type ContestStatus struct {
@@ -56,11 +63,19 @@ type ContestStatus struct {
 	Reason string
 }
 
-func NewContestRunning() ContestStatus   { return ContestStatus{Kind: ContestRunning} }
-func NewContestSucceeded() ContestStatus { return ContestStatus{Kind: ContestSucceeded} }
-func NewContestAborted(reason string) ContestStatus {
+func NewStatusRunning() ContestStatus   { return ContestStatus{Kind: ContestRunning} }
+func NewStatusSucceeded() ContestStatus { return ContestStatus{Kind: ContestSucceeded} }
+
+func NewStatusAborted(reason string) ContestStatus {
 	return ContestStatus{
 		Kind:   ContestAborted,
+		Reason: reason,
+	}
+}
+
+func NewStatusFailed(reason string) ContestStatus {
+	return ContestStatus{
+		Kind:   ContestFailed,
 		Reason: reason,
 	}
 }
@@ -141,7 +156,9 @@ func (i *ContestInfo) NewData() ContestData {
 	switch i.Kind {
 	case ContestMatch:
 		return ContestData{
-			Status: NewContestRunning(),
+			Status:     NewStatusRunning(),
+			LastIndex:  0,
+			FailedJobs: 0,
 			Match: &MatchData{
 				FirstWin:  0,
 				Draw:      0,
@@ -160,9 +177,10 @@ func (i ContestInfo) Clone() ContestInfo {
 }
 
 type ContestData struct {
-	Status    ContestStatus `gorm:"embedded;embeddedPrefix:status_"`
-	LastIndex int64
-	Match     *MatchData `gorm:"-"`
+	Status     ContestStatus `gorm:"embedded;embeddedPrefix:status_"`
+	LastIndex  int64
+	FailedJobs int64
+	Match      *MatchData `gorm:"-"`
 }
 
 func (d ContestData) Clone() ContestData {

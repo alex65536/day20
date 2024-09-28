@@ -58,6 +58,15 @@ func (e *Error) Error() string {
 
 var _ error = (*Error)(nil)
 
+type UpdateStatus string
+
+const (
+	UpdateContinue UpdateStatus = ""
+	UpdateDone     UpdateStatus = "done"
+	UpdateFail     UpdateStatus = "fail"
+	UpdateAbort    UpdateStatus = "abort"
+)
+
 type UpdateRequest struct {
 	SeqIndex  uint64          `json:"seq_index"`
 	RoomID    string          `json:"room_id"`
@@ -65,7 +74,7 @@ type UpdateRequest struct {
 	From      delta.JobCursor `json:"from"`
 	Delta     *delta.JobState `json:"delta"`
 	Timestamp delta.Timestamp `json:"ts"`
-	Done      bool            `json:"done,omitempty"`
+	Status    UpdateStatus    `json:"status,omitempty"`
 	Error     string          `json:"error,omitempty"`
 }
 

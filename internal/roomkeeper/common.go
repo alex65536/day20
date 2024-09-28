@@ -20,6 +20,7 @@ const (
 	JobRunning
 	JobSucceeded
 	JobAborted
+	JobFailed
 )
 
 func (k JobStatusKind) String() string {
@@ -32,13 +33,15 @@ func (k JobStatusKind) String() string {
 		return "success"
 	case JobAborted:
 		return "abort"
+	case JobFailed:
+		return "fail"
 	default:
 		return "bad"
 	}
 }
 
 func (k JobStatusKind) IsFinished() bool {
-	return k == JobSucceeded || k == JobAborted
+	return k == JobSucceeded || k == JobAborted || k == JobFailed
 }
 
 type JobStatus struct {
@@ -53,9 +56,17 @@ func (s JobStatus) String() string {
 func NewStatusUnknown() JobStatus   { return JobStatus{Kind: JobUnknown} }
 func NewStatusRunning() JobStatus   { return JobStatus{Kind: JobRunning} }
 func NewStatusSucceeded() JobStatus { return JobStatus{Kind: JobSucceeded} }
+
 func NewStatusAborted(reason string) JobStatus {
 	return JobStatus{
 		Kind:   JobAborted,
+		Reason: reason,
+	}
+}
+
+func NewStatusFailed(reason string) JobStatus {
+	return JobStatus{
+		Kind: JobFailed,
 		Reason: reason,
 	}
 }
