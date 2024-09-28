@@ -366,6 +366,12 @@ func New(ctx context.Context, log *slog.Logger, db DB, o Options) (*Scheduler, e
 		return nil, fmt.Errorf("list running contests: %w", err)
 	}
 
+	dbRunningJobs, err := db.ListRunningJobs(ctx)
+	if err != nil {
+		log.Warn("could not list running jobs", slogx.Err(err))
+		return nil, fmt.Errorf("list running jobs: %w", err)
+	}
+
 	roomJobs := make(map[string]struct{})
 	for _, r := range rooms {
 		if r.Job != nil {
@@ -373,33 +379,30 @@ func New(ctx context.Context, log *slog.Logger, db DB, o Options) (*Scheduler, e
 		}
 	}
 
+	jobsByContestID := make(map[string][]*RunningJob)
 	jobs := make(map[string]*RunningJob)
+	for _, job := range dbRunningJobs {
+		if _, ok := roomJobs[job.Job.ID]; !ok {
+			log.Warn("found running job not belonging to any room, aborting", slog.String("job_id", job.Job.ID))
+			if err := db.FinishRunningJob(ctx, &FinishedJob{
+				JobInfo: job.JobInfo.Clone(),
+				Status:  roomkeeper.NewStatusAborted("job lost by rooms"),
+				PGN:     nil,
+			}); err != nil {
+				log.Warn("could not finish running job", slogx.Err(err))
+				return nil, fmt.Errorf("finish running job: %w", err)
+			}
+			continue
+		}
+		jobsByContestID[job.ContestID] = append(jobsByContestID[job.ContestID], &job)
+		jobs[job.Job.ID] = &job
+	}
+
 	contests := make(map[string]*contestScheduler)
 	for _, dbContest := range dbContests {
-		contestJobs := make([]*RunningJob, 0, len(dbContest.Jobs))
-		for _, job := range dbContest.Jobs {
-			if _, ok := roomJobs[job.Job.ID]; !ok {
-				log.Warn("found running jobs not belonging to any room, aborting",
-					slog.String("job_id", job.Job.ID),
-				)
-				finishedJob := &FinishedJob{
-					JobInfo: job.JobInfo.Clone(),
-					Status:  roomkeeper.NewStatusAborted("job lost by rooms"),
-					PGN:     nil,
-				}
-				if err := db.FinishRunningJob(ctx, finishedJob); err != nil {
-					log.Warn("could not finish running job", slogx.Err(err))
-					return nil, fmt.Errorf("finish running job: %w", err)
-				}
-				continue
-			}
-			contestJobs = append(contestJobs, &job)
-			jobs[job.Job.ID] = &job
-		}
-
 		info := clone.Ptr(&dbContest.Info)
 		data := dbContest.Data.Clone()
-		sched, err := newContestScheduler(log, &o, info, data, contestJobs)
+		sched, err := newContestScheduler(log, &o, info, data, jobsByContestID[info.ID])
 		if err != nil {
 			log.Warn("could not create contest scheduler, aborting",
 				slog.String("contest_id", info.ID), slogx.Err(err))

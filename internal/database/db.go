@@ -373,7 +373,6 @@ func (d *DB) buildContestFullData(c Contest) scheduler.ContestFullData {
 	return scheduler.ContestFullData{
 		Info: c.Info,
 		Data: c.Data,
-		Jobs: c.RunningJobs,
 	}
 }
 
@@ -388,13 +387,22 @@ func (d *DB) ListContests(ctx context.Context) ([]scheduler.ContestFullData, err
 
 func (d *DB) ListRunningContestsFull(ctx context.Context) ([]scheduler.ContestFullData, error) {
 	var contests []Contest
-	err := d.db.WithContext(ctx).Preload("RunningJobs").Preload("Match").
+	err := d.db.WithContext(ctx).Preload("Match").
 		Where("status_kind = ?", scheduler.ContestRunning).
 		Find(&contests).Error
 	if err != nil {
 		return nil, fmt.Errorf("list running contests: %w", err)
 	}
 	return sliceutil.Map(contests, d.buildContestFullData), nil
+}
+
+func (d *DB) ListRunningJobs(ctx context.Context) ([]scheduler.RunningJob, error) {
+	var jobs []scheduler.RunningJob
+	err := d.db.WithContext(ctx).Model(&scheduler.RunningJob{}).Find(&jobs).Error
+	if err != nil {
+		return nil, fmt.Errorf("list running jobs: %w", err)
+	}
+	return jobs, nil
 }
 
 func (d *DB) CreateContest(ctx context.Context, info scheduler.ContestInfo, data scheduler.ContestData) error {

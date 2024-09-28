@@ -214,7 +214,6 @@ func (d MatchData) Played() int64 {
 type ContestFullData struct {
 	Info ContestInfo
 	Data ContestData
-	Jobs []RunningJob
 }
 
 type JobInfo struct {
