@@ -44,7 +44,7 @@ func (k ContestStatusKind) PrettyString() string {
 	case ContestRunning:
 		return "Running"
 	case ContestSucceeded:
-		return "Finished"
+		return "Succeeded"
 	case ContestAborted:
 		return "Aborted"
 	case ContestFailed:
