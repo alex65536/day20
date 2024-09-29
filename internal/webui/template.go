@@ -1,68 +1,83 @@
 package webui
 
 import (
-	"bytes"
 	"fmt"
 	"html/template"
+	"io/fs"
+	"strings"
 )
 
 type templator struct {
-	cfg  *Config
-	tmpl map[string]*template.Template
+	tmpl   map[string]*template.Template
+	common *template.Template
 }
 
-func newTemplator(cfg *Config) *templator {
-	return &templator{
-		cfg:  cfg,
-		tmpl: make(map[string]*template.Template),
-	}
-}
-
-func (t *templator) makeFuncs() template.FuncMap {
-	return template.FuncMap{
-		"asURL": func(s string) string {
-			return t.cfg.prefix + s
-		},
-		"asStaticURL": func(s string) string {
-			return t.cfg.prefix + s + "?" + t.cfg.opts.ServerID
-		},
-	}
-}
-
-func (t *templator) Has(key string) bool {
-	_, ok := t.tmpl[key]
-	return ok
-}
-
-func (t *templator) Add(key string, names ...string) error {
-	files := make([]string, 0, len(names)+1)
-	files = append(files, "template/base.html")
-	for _, n := range names {
-		files = append(files, fmt.Sprintf("template/%v.html", n))
-	}
-	if _, ok := t.tmpl[key]; ok {
-		return fmt.Errorf("template %v already exists", key)
-	}
-	tmpl, err := template.New(key).Funcs(t.makeFuncs()).ParseFS(templates, files...)
+func parseTemplate(t *template.Template, fileName string) error {
+	data, err := templates.ReadFile(fileName)
 	if err != nil {
-		return fmt.Errorf("template %v parse: %w", key, err)
+		return fmt.Errorf("read file %q: %w", fileName, err)
 	}
-	t.tmpl[key] = tmpl
+	if _, err := t.Parse(string(data)); err != nil {
+		return fmt.Errorf("parse file %q: %w", fileName, err)
+	}
 	return nil
 }
 
-func (t *templator) RenderFragment(key, fragment string, data any) ([]byte, error) {
-	tmpl, ok := t.tmpl[key]
-	if !ok {
-		return nil, fmt.Errorf("template %v not found", key)
+func parseCommonTemplate(cfg *Config) (*template.Template, error) {
+	t := template.New("base").Funcs(template.FuncMap{
+		"asURL": func(s string) string {
+			return cfg.prefix + s
+		},
+		"asStaticURL": func(s string) string {
+			return cfg.prefix + s + "?" + cfg.opts.ServerID
+		},
+	})
+	if err := parseTemplate(t, "template/layout/base.html"); err != nil {
+		return nil, err
 	}
-	var b bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&b, fragment, data); err != nil {
-		return nil, fmt.Errorf("render %v: %w", key, err)
+	if err := fs.WalkDir(templates, "template/part", func(name string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.Type().IsRegular() && !strings.HasSuffix(name, ".html") {
+			return nil
+		}
+		subT := t.New(strings.TrimPrefix(strings.TrimSuffix(name, ".html"), "template/"))
+		if err := parseTemplate(subT, name); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("walk: %w", err)
 	}
-	return b.Bytes(), nil
+	return t, nil
 }
 
-func (t *templator) Render(key string, data any) ([]byte, error) {
-	return t.RenderFragment(key, "base", data)
+func newTemplator(cfg *Config) (*templator, error) {
+	common, err := parseCommonTemplate(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("parse common template: %w", err)
+	}
+	return &templator{
+		tmpl:   make(map[string]*template.Template),
+		common: common,
+	}, nil
+}
+
+func (t *templator) Get(name string) (*template.Template, error) {
+	if tmpl, ok := t.tmpl[name]; ok {
+		return tmpl, nil
+	}
+	tmpl, err := t.common.Clone()
+	if err != nil {
+		return nil, fmt.Errorf("clone: %w", err)
+	}
+	if name != "" {
+		subT := tmpl.New(name)
+		if err := parseTemplate(subT, "template/"+name+".html"); err != nil {
+			return nil, fmt.Errorf("parse: %w", err)
+		}
+	}
+	t.tmpl[name] = tmpl
+	return tmpl, nil
 }

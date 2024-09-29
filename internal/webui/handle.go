@@ -116,7 +116,7 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 		Prefix:      prefix,
 		CSRFProtect: csrf.Protect(o.CSRFKey),
 	}
-	templ := newTemplator(&cfg)
+	templ := must(newTemplator(&cfg))
 
 	// Static.
 	mux.Handle(prefix+"/img/", b.WrapStatic(http.FileServerFS(staticData)))

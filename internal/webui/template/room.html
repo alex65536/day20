@@ -8,9 +8,9 @@
 
 {{define "body"}}
   <div id="room-body" hx-ext="ws" ws-connect="{{.ID | printf "/room/%v/ws" | asURL}}">
-    {{template "cursor" .Cursor}}
+    {{template "part/cursor" .Cursor}}
     <div id="main-board" style="width: 400px"></div>
-    {{template "fen" .}}
+    {{template "part/fen" .FEN}}
     <script>
       var mainBoard = Chessboard('main-board', {
         draggable: false,
@@ -25,8 +25,8 @@
         }
       })
     </script>
-    {{template "player" .White}}
-    {{template "player" .Black}}
+    {{template "part/player" .White}}
+    {{template "part/player" .Black}}
     <a href="{{.ID | printf "/room/%v/pgn" | asURL}}">PGN</a>
   </div>
 {{end}}

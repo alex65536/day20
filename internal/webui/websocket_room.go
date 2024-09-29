@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/alex65536/day20/internal/delta"
@@ -26,7 +26,7 @@ type roomWebSocketSession struct {
 	req    *http.Request
 	log    *slog.Logger
 	cfg    *Config
-	templ  *templator
+	tmpl   *template.Template
 	s      *websockutil.Session
 	recvCh chan []byte
 }
@@ -49,19 +49,15 @@ func (s *roomWebSocketSession) recvCursor() (delta.RoomCursor, error) {
 }
 
 func (s *roomWebSocketSession) shutdownWithPageRefresh() {
-	body, err := s.templ.RenderFragment("cursor-ajax", "cursor", struct {
-		cursorData
-		AJAXAttrs template.HTML
-	}{
-		cursorData: buildCursorData(s.log, maybe.None[delta.RoomCursor](), true),
-		AJAXAttrs:  template.HTML(`hx-swap-oob="outerHTML"`),
-	})
-	if err != nil {
+	var b bytes.Buffer
+	cursorData := buildCursorPartData(s.log, maybe.None[delta.RoomCursor](), true)
+	cursorData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+	if err := s.tmpl.ExecuteTemplate(&b, "part/cursor", cursorData); err != nil {
 		s.log.Error("could not render cursor", slogx.Err(err))
 		s.s.Shutdown()
 		return
 	}
-	if err := s.s.WriteMsg(websocket.TextMessage, body); err != nil {
+	if err := s.s.WriteMsg(websocket.TextMessage, b.Bytes()); err != nil {
 		s.log.Info("could not write message", slogx.Err(err))
 		s.s.Close()
 		return
@@ -69,27 +65,22 @@ func (s *roomWebSocketSession) shutdownWithPageRefresh() {
 	s.s.Shutdown()
 }
 
-func (s *roomWebSocketSession) renderAndSend(key, fragment string, cursor delta.RoomCursor, data any) bool {
-	fragmentBody, err := s.templ.RenderFragment(key, fragment, data)
-	if err != nil {
+func (s *roomWebSocketSession) renderAndSend(fragment string, cursor delta.RoomCursor, data any) bool {
+	var b bytes.Buffer
+	if err := s.tmpl.ExecuteTemplate(&b, fragment, data); err != nil {
 		s.log.Error("could not render fragment", slogx.Err(err))
 		s.s.Shutdown()
 		return false
 	}
-	cursorBody, err := s.templ.RenderFragment("cursor-ajax", "cursor", struct {
-		cursorData
-		AJAXAttrs template.HTML
-	}{
-		cursorData: buildCursorData(s.log, maybe.Some(cursor), false),
-		AJAXAttrs:  template.HTML(`hx-swap-oob="outerHTML"`),
-	})
-	if err != nil {
+	_ = b.WriteByte('\n')
+	cursorData := buildCursorPartData(s.log, maybe.Some(cursor), false)
+	cursorData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+	if err := s.tmpl.ExecuteTemplate(&b, "part/cursor", cursorData); err != nil {
 		s.log.Error("could not render cursor", slogx.Err(err))
 		s.s.Shutdown()
 		return false
 	}
-	body := slices.Concat(fragmentBody, []byte{'\n'}, cursorBody)
-	if err := s.s.WriteMsg(websocket.TextMessage, body); err != nil {
+	if err := s.s.WriteMsg(websocket.TextMessage, b.Bytes()); err != nil {
 		s.log.Info("could not write message", slogx.Err(err))
 		return false
 	}
@@ -142,17 +133,13 @@ func (s *roomWebSocketSession) Do() {
 
 		if oldClientCursor.JobID != clientCursor.JobID ||
 			oldClientCursor.State.Position != clientCursor.State.Position {
-			data := struct {
-				FEN       string
-				AJAXAttrs template.HTML
-			}{
-				FEN:       emptyFEN,
-				AJAXAttrs: template.HTML(`hx-swap-oob="outerHTML"`),
+			var board *chess.Board
+			if state.State != nil {
+				board = state.State.Position.Board
 			}
-			if state.State != nil && state.State.Position.Board != nil {
-				data.FEN = state.State.Position.Board.FEN()
-			}
-			if !s.renderAndSend("fen-ajax", "fen", clientCursor, data) {
+			fenData := buildFENPartData(board)
+			fenData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+			if !s.renderAndSend("part/fen", clientCursor, fenData) {
 				return
 			}
 		}
@@ -163,14 +150,9 @@ func (s *roomWebSocketSession) Do() {
 				oldClientCursor.State.HasInfo == clientCursor.State.HasInfo {
 				continue
 			}
-			data := struct {
-				playerData
-				AJAXAttrs template.HTML
-			}{
-				playerData: buildPlayerData(col, state.State),
-				AJAXAttrs:  template.HTML(`hx-swap-oob="outerHTML"`),
-			}
-			if !s.renderAndSend("player-ajax", "player", clientCursor, data) {
+			playerData := buildPlayerPartData(col, state.State)
+			playerData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+			if !s.renderAndSend("part/player", clientCursor, playerData) {
 				return
 			}
 		}
@@ -185,24 +167,19 @@ func (s *roomWebSocketSession) Do() {
 type roomWebSocketImpl struct {
 	log     *slog.Logger
 	cfg     *Config
-	templ   *templator
+	tmpl    *template.Template
 	factory *websockutil.SessionFactory
 }
 
-func roomWebSocket(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	if err := templ.Add("fen-ajax", "fen", "ajax"); err != nil {
-		return nil, fmt.Errorf("add template: %w", err)
-	}
-	if err := templ.Add("player-ajax", "player", "ajax"); err != nil {
-		return nil, fmt.Errorf("add template: %w", err)
-	}
-	if err := templ.Add("cursor-ajax", "cursor", "ajax"); err != nil {
-		return nil, fmt.Errorf("add template: %w", err)
+func roomWebSocket(log *slog.Logger, cfg *Config, templator *templator) (http.Handler, error) {
+	tmpl, err := templator.Get("")
+	if err != nil {
+		return nil, fmt.Errorf("template: %w", err)
 	}
 	return &roomWebSocketImpl{
 		log:     log,
 		cfg:     cfg,
-		templ:   templ,
+		tmpl:    tmpl,
 		factory: websockutil.NewSessionFactory(cfg.opts.WebSocket),
 	}, nil
 }
@@ -232,7 +209,7 @@ func (s *roomWebSocketImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		req:    req,
 		log:    log,
 		cfg:    s.cfg,
-		templ:  s.templ,
+		tmpl:   s.tmpl,
 		s:      session,
 		recvCh: recvCh,
 	}

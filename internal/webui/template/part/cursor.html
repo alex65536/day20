@@ -1,0 +1,11 @@
+<span
+  {{.AJAXAttrs}}
+  id="cursor-holder"
+  hx-vals='{{.JSON}}'
+  hx-trigger="htmx:wsOpen from:#room-body"
+  ws-send
+  hidden
+  {{if .ForceRefresh}}
+    hx-on:htmx:load="location.reload()"
+  {{end}}
+></span>

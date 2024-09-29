@@ -1,10 +1,12 @@
 package webui
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
 
@@ -51,7 +53,8 @@ type page struct {
 	pageOpts pageOptions
 	log      *slog.Logger
 	b        dataBuilder
-	templ    *templator
+	tmpl     *template.Template
+	errTmpl  *template.Template
 }
 
 type pageData struct {
@@ -117,7 +120,8 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 		slog.Int("code", httpErr.Code()),
 		slog.String("msg", httpErr.Message()),
 	)
-	page, err := p.templ.Render("error", pageData{
+	var b bytes.Buffer
+	if err := p.errTmpl.Execute(&b, pageData{
 		Data: struct {
 			Code    int
 			Message string
@@ -125,8 +129,7 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 			Code:    httpErr.Code(),
 			Message: httpErr.Message(),
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		log.Error("error rendering page", slogx.Err(err))
 		writeHTTPErr(log, w, fmt.Errorf("render page"))
 		return
@@ -134,7 +137,7 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 	w.Header().Set("Context-Type", "text/html")
 	httpErr.ApplyHeaders(w)
 	w.WriteHeader(httpErr.Code())
-	if _, err := w.Write(page); err != nil {
+	if _, err := w.Write(b.Bytes()); err != nil {
 		log.Error("error writing page data", slogx.Err(err))
 		return
 	}
@@ -216,12 +219,12 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	page, err := p.templ.Render(p.name, pageData{
+	var b bytes.Buffer
+	if err := p.tmpl.Execute(&b, pageData{
 		Data:     data,
 		User:     bc.UserInfo,
 		WithAuth: !p.pageOpts.NoUserInfo && !p.pageOpts.NoShowAuth,
-	})
-	if err != nil {
+	}); err != nil {
 		log.Error("error rendering page", slogx.Err(err))
 		writeHTTPErr(log, w, fmt.Errorf("render page"))
 		return
@@ -229,7 +232,7 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Context-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(page); err != nil {
+	if _, err := w.Write(b.Bytes()); err != nil {
 		log.Error("error writing page data", slogx.Err(err))
 		return
 	}
@@ -239,20 +242,17 @@ func newPage(
 	log *slog.Logger,
 	cfg *Config,
 	pageOpts pageOptions,
-	templ *templator,
+	templator *templator,
 	builder dataBuilder,
 	name string,
-	deps ...string,
 ) (http.Handler, error) {
-	if name != "" {
-		if err := templ.Add(name, append([]string{name}, deps...)...); err != nil {
-			return nil, fmt.Errorf("template %v: %w", name, err)
-		}
+	tmpl, err := templator.Get(name)
+	if err != nil {
+		return nil, fmt.Errorf("template %q: %w", name, err)
 	}
-	if !templ.Has("error") {
-		if err := templ.Add("error", "error"); err != nil {
-			return nil, fmt.Errorf("template error: %w", err)
-		}
+	errTempl, err := templator.Get("error")
+	if err != nil {
+		return nil, fmt.Errorf("template \"error\": %w", err)
 	}
 	return &page{
 		name:     name,
@@ -260,7 +260,8 @@ func newPage(
 		pageOpts: pageOpts,
 		log:      log.With(slog.String("page", name)),
 		b:        builder,
-		templ:    templ,
+		tmpl:     tmpl,
+		errTmpl:  errTempl,
 	}, nil
 }
 
