@@ -120,6 +120,25 @@ func (m *Manager) GenerateInviteLink(ctx context.Context, name string, creator *
 	return m.doGenerateInviteLink(ctx, name, creator, perms, true)
 }
 
+func (m *Manager) GenerateRoomToken(ctx context.Context, name string, creator *User) (string, error) {
+	if creator == nil || !creator.Perms.Get(PermHostRooms) {
+		return "", fmt.Errorf("operation not permitted")
+	}
+	token := RoomToken{
+		Name:      name,
+		UserID:    creator.ID,
+		CreatedAt: timeutil.NowUTC(),
+	}
+	tok, err := token.GenerateNew()
+	if err != nil {
+		return "", fmt.Errorf("generate token: %w", err)
+	}
+	if err := m.CreateRoomToken(ctx, token); err != nil {
+		return "", fmt.Errorf("save token to db: %w", err)
+	}
+	return tok, nil
+}
+
 func (m *Manager) InviteLinkURL(l InviteLink) string {
 	return m.o.LinkPrefix + l.Value
 }

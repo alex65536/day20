@@ -104,7 +104,7 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 		}
 		switch req.FormValue("action") {
 		case "delete":
-			if err := cfg.UserManager.DeleteInviteLink(ctx, req.FormValue("hash")); err != nil {
+			if err := cfg.UserManager.DeleteInviteLink(ctx, req.FormValue("hash"), bc.FullUser.ID); err != nil {
 				log.Error("could not delete invite link", slogx.Err(err))
 				return nil, fmt.Errorf("delete invite link: %w", err)
 			}

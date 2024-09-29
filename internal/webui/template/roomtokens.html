@@ -1,0 +1,34 @@
+{{define "title"}}Room Tokens{{end}}
+
+{{define "body"}}
+  <div>
+    <form action="/roomtokens/new" method="post">
+      <span>Generate new token:</span>
+      {{.CSRFField}}
+      <label for="token-name">Name:</label>
+      <input type="text" name="token-name" id="token-name">
+      <input type="submit" value="Generate">
+    </form>
+  </div>
+  <table>
+    <tr>
+      <th>Hash</th>
+      <th>Name</th>
+      <th></th>
+    </tr>
+    {{range $i, $tok := .Tokens}}
+      <tr>
+        <td>{{$tok.Hash}}</td>
+        <td>{{$tok.Name}}</td>
+        <td>
+          <form action="/roomtokens" method="post">
+            {{$.CSRFField}}
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="hash" value="{{$tok.Hash}}">
+            <input type="submit" value="Delete">
+          </form>
+        </td>
+      </tr>
+    {{end}}
+  </table>
+{{end}}

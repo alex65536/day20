@@ -115,14 +115,11 @@ func main() {
 			return fmt.Errorf("create roomkeeper: %w", err)
 		}
 		defer keeper.Close()
+		tokenChecker := userauth.NewTokenChecker(opts.TokenChecker, db)
+		defer tokenChecker.Close()
 		mux := http.NewServeMux()
-		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerOptions{
-			TokenChecker: func(token string) error {
-				if token != "test" {
-					return fmt.Errorf("bad token")
-				}
-				return nil
-			},
+		if err := roomapi.HandleServer(log, mux, "/api/room", keeper, roomapi.ServerConfig{
+			TokenChecker: tokenChecker.Check,
 		}); err != nil {
 			return fmt.Errorf("handle server: %w", err)
 		}
@@ -151,11 +148,11 @@ func main() {
 				}
 			}
 		}()
-		defer func() { <-servFin }()
 		defer func() {
 			log.Info("stopping server")
 			servCancel()
 			_ = server.Shutdown(servCtx)
+			<-servFin
 		}()
 
 		<-ctx.Done()

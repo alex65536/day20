@@ -16,13 +16,13 @@ import (
 
 type TokenChecker func(token string) error
 
-type ServerOptions struct {
+type ServerConfig struct {
 	TokenChecker TokenChecker
 }
 
 func makeHandler[Req any, Rsp any](
 	log *slog.Logger,
-	o *ServerOptions,
+	cfg *ServerConfig,
 	fn func(context.Context, *Req) (*Rsp, error),
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, hReq *http.Request) {
@@ -61,7 +61,7 @@ func makeHandler[Req any, Rsp any](
 				}
 				return token, true
 			}(); authOk {
-				if err := o.TokenChecker(token); err != nil {
+				if err := cfg.TokenChecker(token); err != nil {
 					log.Warn("bad token", slogx.Err(err))
 					return &Error{Code: ErrBadToken, Message: "bad token auth"}
 				}
@@ -177,18 +177,18 @@ func make404Handler(log *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func HandleServer(log *slog.Logger, mux *http.ServeMux, prefix string, a API, o ServerOptions) error {
-	if o.TokenChecker == nil {
+func HandleServer(log *slog.Logger, mux *http.ServeMux, prefix string, a API, cfg ServerConfig) error {
+	if cfg.TokenChecker == nil {
 		return fmt.Errorf("no token checker")
 	}
 	mux.HandleFunc(prefix+"/update",
-		makeHandler(log.With(slog.String("handler", "update")), &o, a.Update))
+		makeHandler(log.With(slog.String("handler", "update")), &cfg, a.Update))
 	mux.HandleFunc(prefix+"/job",
-		makeHandler(log.With(slog.String("handler", "job")), &o, a.Job))
+		makeHandler(log.With(slog.String("handler", "job")), &cfg, a.Job))
 	mux.HandleFunc(prefix+"/hello",
-		makeHandler(log.With(slog.String("handler", "hello")), &o, a.Hello))
+		makeHandler(log.With(slog.String("handler", "hello")), &cfg, a.Hello))
 	mux.HandleFunc(prefix+"/bye",
-		makeHandler(log.With(slog.String("handler", "bye")), &o, a.Bye))
+		makeHandler(log.With(slog.String("handler", "bye")), &cfg, a.Bye))
 	mux.HandleFunc(prefix+"/", make404Handler(log))
 	return nil
 }

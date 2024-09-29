@@ -336,8 +336,8 @@ func (d *DB) PruneInviteLinks(ctx context.Context, now timeutil.UTCTime) error {
 	return nil
 }
 
-func (d *DB) DeleteInviteLink(ctx context.Context, linkHash string) error {
-	err := d.db.WithContext(ctx).Delete(&userauth.InviteLink{Hash: linkHash}).Error
+func (d *DB) DeleteInviteLink(ctx context.Context, linkHash string, userID string) error {
+	err := d.db.WithContext(ctx).Where("owner_user_id = ?", userID).Delete(&userauth.InviteLink{Hash: linkHash}).Error
 	if err != nil {
 		return fmt.Errorf("delete invite link: %w", err)
 	}
@@ -352,8 +352,20 @@ func (d *DB) CreateRoomToken(ctx context.Context, token userauth.RoomToken) erro
 	return nil
 }
 
-func (d *DB) DeleteRoomToken(ctx context.Context, tokenHash string) error {
-	err := d.db.WithContext(ctx).Delete(&userauth.RoomToken{Hash: tokenHash}).Error
+func (d *DB) GetRoomToken(ctx context.Context, hash string) (userauth.RoomToken, error) {
+	var tokens []userauth.RoomToken
+	err := d.db.WithContext(ctx).Limit(1).Where("hash = ?", hash).Limit(1).Find(&tokens).Error
+	if err != nil {
+		return userauth.RoomToken{}, fmt.Errorf("get room token: %w", err)
+	}
+	if len(tokens) == 0 {
+		return userauth.RoomToken{}, userauth.ErrRoomTokenNotFound
+	}
+	return tokens[0], nil
+}
+
+func (d *DB) DeleteRoomToken(ctx context.Context, tokenHash string, userID string) error {
+	err := d.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&userauth.RoomToken{Hash: tokenHash}).Error
 	if err != nil {
 		return fmt.Errorf("delete room token: %w", err)
 	}

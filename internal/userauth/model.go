@@ -194,7 +194,7 @@ type InviteLink struct {
 
 func HashInviteValue(val string) string {
 	hash := sha256.Sum256([]byte(val))
-	return base64.StdEncoding.EncodeToString(hash[:])
+	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
 func (l *InviteLink) GenerateNew() error {
@@ -208,14 +208,15 @@ func (l *InviteLink) GenerateNew() error {
 }
 
 type RoomToken struct {
-	Hash   string `gorm:"primaryKey"`
-	Name   string
-	UserID string `gorm:"index"`
+	Hash      string `gorm:"primaryKey"`
+	Name      string
+	UserID    string `gorm:"index"`
+	CreatedAt timeutil.UTCTime
 }
 
 func HashRoomToken(tok string) string {
 	hash := sha256.Sum256([]byte(tok))
-	return base64.StdEncoding.EncodeToString(hash[:])
+	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
 func (t *RoomToken) GenerateNew() (string, error) {

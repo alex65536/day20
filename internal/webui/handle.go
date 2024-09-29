@@ -140,6 +140,8 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 	mux.Handle(prefix+"/contests/new", b.WrapPage(must(contestsNewPage(log, &cfg, templ))))
 	mux.Handle(prefix+"/contest/{contestID}", b.WrapPage(must(contestPage(log, &cfg, templ))))
 	mux.Handle(prefix+"/contest/{contestID}/pgn", b.WrapAttach(contestPGNAttach(log, &cfg)))
+	mux.Handle(prefix+"/roomtokens", b.WrapPage(must(roomtokensPage(log, &cfg, templ))))
+	mux.Handle(prefix+"/roomtokens/new", b.WrapPage(must(roomtokensNewPage(log, &cfg, templ))))
 
 	// 404.
 	mux.Handle(prefix+"/", b.WrapPage(must(e404Page(log, &cfg, templ))))

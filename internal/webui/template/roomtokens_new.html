@@ -1,0 +1,36 @@
+{{define "title"}}New Room Token{{end}}
+
+{{define "body"}}
+<div>Your room token:</div>
+<div>
+  <code id="token">{{.Token}}</code>
+  <a id="copy-link" href="javascript:copyToken()">Copy</a>
+  <a id="download-link" href="javascript:downloadToken()">Download</a>
+</div>
+<script>
+  if (!navigator.clipboard) {
+    console.warn('copying to clipboard is not supported')
+    var elt = document.getElementById('copy-link')
+    elt.parentNode.removeChild(elt)
+  }
+
+  function token() { return document.getElementById('token').textContent }
+
+  function copyToken() {
+    navigator.clipboard.writeText(token()).then(function() {}, function(err) {
+      console.error('could not copy: ', err)
+    })
+  }
+
+  function downloadToken() {
+    var link = document.createElement('a')
+    var blob = new Blob([token()], {type: 'text/plain'})
+    link.setAttribute('href', URL.createObjectURL(blob))
+    link.setAttribute('download', 'day20_token')
+    link.click()
+  }
+</script>
+<div>
+  <a href="/roomtokens">Back</a>
+</div>
+{{end}}

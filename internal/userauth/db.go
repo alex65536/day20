@@ -11,6 +11,7 @@ var (
 	ErrInviteLinkUsed    = errors.New("invite link already used")
 	ErrUserAlreadyExists = errors.New("user with such username already exists")
 	ErrUserNotFound      = errors.New("user not found")
+	ErrRoomTokenNotFound = errors.New("room token not found")
 )
 
 type GetUserOptions struct {
@@ -32,7 +33,8 @@ type DB interface {
 	CreateInviteLink(ctx context.Context, link InviteLink) error
 	GetInviteLink(ctx context.Context, linkHash string, now timeutil.UTCTime) (InviteLink, error)
 	PruneInviteLinks(ctx context.Context, now timeutil.UTCTime) error
-	DeleteInviteLink(ctx context.Context, linkHash string) error
+	DeleteInviteLink(ctx context.Context, linkHash string, userID string) error
 	CreateRoomToken(ctx context.Context, token RoomToken) error
-	DeleteRoomToken(ctx context.Context, tokenHash string) error
+	GetRoomToken(ctx context.Context, hash string) (RoomToken, error)
+	DeleteRoomToken(ctx context.Context, tokenHash string, userID string) error
 }

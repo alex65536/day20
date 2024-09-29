@@ -14,12 +14,13 @@ import (
 )
 
 type Options struct {
-	Addr       string                  `toml:"addr"`
-	DB         database.Options        `toml:"db"`
-	WebUI      webui.Options           `toml:"webui"`
-	RoomKeeper roomkeeper.Options      `toml:"roomkeeper"`
-	Users      userauth.ManagerOptions `toml:"users"`
-	Scheduler  scheduler.Options       `toml:"scheduler"`
+	Addr         string                       `toml:"addr"`
+	DB           database.Options             `toml:"db"`
+	WebUI        webui.Options                `toml:"webui"`
+	RoomKeeper   roomkeeper.Options           `toml:"roomkeeper"`
+	Users        userauth.ManagerOptions      `toml:"users"`
+	Scheduler    scheduler.Options            `toml:"scheduler"`
+	TokenChecker userauth.TokenCheckerOptions `toml:"token-checker"`
 }
 
 func (o *Options) FillDefaults() {
@@ -34,6 +35,7 @@ func (o *Options) FillDefaults() {
 	if o.Users.LinkPrefix == "" {
 		o.Users.LinkPrefix = fmt.Sprintf("http://%v/invite/", o.Addr)
 	}
+	o.TokenChecker.FillDefaults()
 }
 
 func (o *Options) MixSecrets(s *Secrets) error {

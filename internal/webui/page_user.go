@@ -33,6 +33,7 @@ type userData struct {
 	Perms                []userPerm
 	UserBlocked          bool
 	CanInvite            bool
+	CanHostRooms         bool
 }
 
 type userDataBuilder struct{}
@@ -93,6 +94,7 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 		Perms:             perms,
 		UserBlocked:       targetUser.Perms.IsBlocked,
 		CanInvite:         isOurOwnPage && ourUser.Perms.Get(userauth.PermInvite),
+		CanHostRooms:      isOurOwnPage && ourUser.Perms.Get(userauth.PermHostRooms),
 	}
 
 	switch req.Method {
