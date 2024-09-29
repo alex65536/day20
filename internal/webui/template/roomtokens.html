@@ -5,21 +5,21 @@
     <form action="/roomtokens/new" method="post">
       <span>Generate new token:</span>
       {{.CSRFField}}
-      <label for="token-name">Name:</label>
-      <input type="text" name="token-name" id="token-name">
+      <label for="token-label">Label:</label>
+      <input type="text" name="token-label" id="token-label">
       <input type="submit" value="Generate">
     </form>
   </div>
   <table>
     <tr>
+      <th>Label</th>
       <th>Hash</th>
-      <th>Name</th>
       <th></th>
     </tr>
     {{range $i, $tok := .Tokens}}
       <tr>
+        <td>{{$tok.Label}}</td>
         <td>{{$tok.Hash}}</td>
-        <td>{{$tok.Name}}</td>
         <td>
           <form action="/roomtokens" method="post">
             {{$.CSRFField}}

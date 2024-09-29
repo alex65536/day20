@@ -27,7 +27,7 @@ type invitesDataPerm struct {
 
 type invitesDataItem struct {
 	CreatedAt timeutil.UTCTime
-	Name      string
+	Label     string
 	Link      string
 	Perms     string
 	ExpiresAt string
@@ -74,7 +74,7 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 		}
 		invites = append(invites, invitesDataItem{
 			CreatedAt: l.CreatedAt,
-			Name:      l.Name,
+			Label:     l.Label,
 			Link:      cfg.UserManager.InviteLinkURL(l),
 			Perms:     strings.Join(perms, ", "),
 			ExpiresAt: l.ExpiresAt.Local().Format(time.RFC1123),
@@ -116,7 +116,7 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 					*perms.GetMut(p) = true
 				}
 			}
-			_, err := cfg.UserManager.GenerateInviteLink(ctx, req.FormValue("invite-name"), bc.FullUser, perms)
+			_, err := cfg.UserManager.GenerateInviteLink(ctx, req.FormValue("invite-label"), bc.FullUser, perms)
 			if err != nil {
 				var verifyErr *userauth.ErrorInviteLinkVerify
 				if errors.As(err, &verifyErr) {

@@ -6,8 +6,8 @@
       <span>Generate new link:</span>
       {{.CSRFField}}
       <input type="hidden" name="action" value="invite">
-      <label for="invite-name">Name:</label>
-      <input type="text" name="invite-name" id="invite-name">
+      <label for="invite-label">Label:</label>
+      <input type="text" name="invite-label" id="invite-label">
       <span>Permissions:</span>
       {{range $i, $perm := .Perms}}
         <input type="checkbox" id="{{$perm.Field}}" name="{{$perm.Field}}" value="true">
@@ -18,7 +18,7 @@
   </div>
   <table>
     <tr>
-      <th>Name</th>
+      <th>Label</th>
       <th>Link</th>
       <th>Permissions</th>
       <th>Expires at</th>
@@ -26,7 +26,7 @@
     </tr>
     {{range $i, $inv := .Invites}}
       <tr>
-        <td>{{$inv.Name}}</td>
+        <td>{{$inv.Label}}</td>
         <td><a href="{{$inv.Link}}">{{$inv.Link}}</a></td>
         <td>{{$inv.Perms}}</td>
         <td>{{$inv.ExpiresAt}}</td>

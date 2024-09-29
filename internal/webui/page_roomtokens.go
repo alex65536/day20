@@ -20,7 +20,7 @@ import (
 type roomtokensDataItem struct {
 	CreatedAt timeutil.UTCTime
 	Hash      string
-	Name      string
+	Label     string
 }
 
 type roomtokensData struct {
@@ -47,7 +47,7 @@ func (roomtokensDataBuilder) Build(ctx context.Context, bc builderCtx) (any, err
 		tokens = append(tokens, roomtokensDataItem{
 			CreatedAt: t.CreatedAt,
 			Hash:      t.Hash,
-			Name:      t.Name,
+			Label:     t.Label,
 		})
 	}
 	slices.SortFunc(tokens, func(a, b roomtokensDataItem) int {

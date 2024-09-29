@@ -35,8 +35,7 @@ func (roomtokensNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, 
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
 		}
-		name := req.FormValue("token-name")
-		tok, err := cfg.UserManager.GenerateRoomToken(ctx, name, bc.FullUser)
+		tok, err := cfg.UserManager.GenerateRoomToken(ctx, req.FormValue("token-label"), bc.FullUser)
 		if err != nil {
 			log.Warn("could not generate room token", slogx.Err(err))
 			return nil, fmt.Errorf("generate room token: %w", err)

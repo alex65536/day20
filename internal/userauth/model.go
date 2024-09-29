@@ -185,7 +185,7 @@ func (u *User) VerifyPassword(password []byte, o *PasswordOptions) bool {
 type InviteLink struct {
 	Hash        string  `gorm:"primaryKey"`
 	OwnerUserID *string `gorm:"index"`
-	Name        string
+	Label       string
 	Value       string
 	Perms       Perms `gorm:"embedded"`
 	CreatedAt   timeutil.UTCTime
@@ -209,7 +209,7 @@ func (l *InviteLink) GenerateNew() error {
 
 type RoomToken struct {
 	Hash      string `gorm:"primaryKey"`
-	Name      string
+	Label     string
 	UserID    string `gorm:"index"`
 	CreatedAt timeutil.UTCTime
 }

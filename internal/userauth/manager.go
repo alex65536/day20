@@ -84,7 +84,7 @@ func (m *Manager) Close() {
 	<-m.done
 }
 
-func (m *Manager) doGenerateInviteLink(ctx context.Context, name string, creator *User, perms Perms, verify bool) (InviteLink, error) {
+func (m *Manager) doGenerateInviteLink(ctx context.Context, label string, creator *User, perms Perms, verify bool) (InviteLink, error) {
 	now := timeutil.NowUTC()
 	var ownerUserID *string
 	if creator != nil {
@@ -93,7 +93,7 @@ func (m *Manager) doGenerateInviteLink(ctx context.Context, name string, creator
 	link := InviteLink{
 		OwnerUserID: ownerUserID,
 		Perms:       perms,
-		Name:        name,
+		Label:       label,
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(m.o.InviteLinkExpiry),
 	}
@@ -116,16 +116,16 @@ func (m *Manager) doGenerateInviteLink(ctx context.Context, name string, creator
 	return link, nil
 }
 
-func (m *Manager) GenerateInviteLink(ctx context.Context, name string, creator *User, perms Perms) (InviteLink, error) {
-	return m.doGenerateInviteLink(ctx, name, creator, perms, true)
+func (m *Manager) GenerateInviteLink(ctx context.Context, label string, creator *User, perms Perms) (InviteLink, error) {
+	return m.doGenerateInviteLink(ctx, label, creator, perms, true)
 }
 
-func (m *Manager) GenerateRoomToken(ctx context.Context, name string, creator *User) (string, error) {
+func (m *Manager) GenerateRoomToken(ctx context.Context, label string, creator *User) (string, error) {
 	if creator == nil || !creator.Perms.Get(PermHostRooms) {
 		return "", fmt.Errorf("operation not permitted")
 	}
 	token := RoomToken{
-		Name:      name,
+		Label:     label,
 		UserID:    creator.ID,
 		CreatedAt: timeutil.NowUTC(),
 	}
