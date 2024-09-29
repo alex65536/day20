@@ -241,7 +241,9 @@ func (s *Scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, gam
 		addPGNToJobOrAbort(s.log, finishedJob, game)
 	}
 
-	s.db.FinishRunningJob(context.Background(), finishedJob)
+	if err := s.db.FinishRunningJob(context.Background(), finishedJob); err != nil {
+		s.log.Error("could not finish running job", slog.String("job_id", jobID), slogx.Err(err))
+	}
 }
 
 func (s *Scheduler) CreateContest(ctx context.Context, settings ContestSettings) (ContestInfo, error) {
