@@ -1,7 +1,7 @@
 function newClock(id) {
   var target = document.getElementById(id)
   if (!target) {
-    throw new Error("element not found")
+    throw new Error('element not found')
   }
 
   function timestamp() {
@@ -21,7 +21,7 @@ function newClock(id) {
   }
 
   var timer, now
-  var active = target.getAttribute('data-clock-active') == "true"
+  var active = target.getAttribute('data-clock-active') == 'true'
   if (active) {
     now = timestamp()
     timer = setInterval(function() {
