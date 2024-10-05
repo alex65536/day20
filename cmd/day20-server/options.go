@@ -3,9 +3,12 @@ package main
 import (
 	crand "crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 
+	"github.com/BurntSushi/toml"
 	"github.com/alex65536/day20/internal/database"
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/scheduler"
@@ -21,6 +24,7 @@ type Options struct {
 	Users        userauth.ManagerOptions      `toml:"users"`
 	Scheduler    scheduler.Options            `toml:"scheduler"`
 	TokenChecker userauth.TokenCheckerOptions `toml:"token-checker"`
+	SecretsPath  string                       `toml:"secrets-path"`
 }
 
 func (o *Options) FillDefaults() {
@@ -36,6 +40,36 @@ func (o *Options) FillDefaults() {
 		o.Users.LinkPrefix = fmt.Sprintf("http://%v/invite/", o.Addr)
 	}
 	o.TokenChecker.FillDefaults()
+}
+
+func (o *Options) MixSecretsFromFile() error {
+	rawSecrets, err := os.ReadFile(o.SecretsPath)
+	if err != nil {
+		rawSecrets = nil
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("read secrets: %w", err)
+		}
+	}
+	var secrets Secrets
+	if rawSecrets != nil {
+		if err := toml.Unmarshal(rawSecrets, &secrets); err != nil {
+			return fmt.Errorf("unmarshal secrets")
+		}
+	}
+	secretsChanged, err := secrets.GenerateMissing()
+	if err != nil {
+		return fmt.Errorf("generate secrets: %w", err)
+	}
+	if secretsChanged {
+		newRawSecrets, err := toml.Marshal(&secrets)
+		if err != nil {
+			return fmt.Errorf("marshal secrets")
+		}
+		if err := os.WriteFile(o.SecretsPath, newRawSecrets, 0600); err != nil {
+			return fmt.Errorf("write secrets: %w", err)
+		}
+	}
+	return nil
 }
 
 func (o *Options) MixSecrets(s *Secrets) error {

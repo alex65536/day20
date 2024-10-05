@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -40,43 +39,11 @@ func main() {
 		"options", "o", "",
 		"options file",
 	)
-	secretsPath := p.StringP(
-		"secrets", "s", "",
-		"secrets file",
-	)
 	if err := serverCmd.MarkFlagRequired("options"); err != nil {
-		panic(err)
-	}
-	if err := serverCmd.MarkFlagRequired("secrets"); err != nil {
 		panic(err)
 	}
 
 	serverCmd.RunE = func(cmd *cobra.Command, _args []string) error {
-		rawSecrets, err := os.ReadFile(*secretsPath)
-		if err != nil {
-			rawSecrets = nil
-			if !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("read secrets: %w", err)
-			}
-		}
-		var secrets Secrets
-		if err := toml.Unmarshal(rawSecrets, &secrets); err != nil {
-			return fmt.Errorf("unmarshal secrets")
-		}
-		secretsChanged, err := secrets.GenerateMissing()
-		if err != nil {
-			return fmt.Errorf("generate secrets: %w", err)
-		}
-		if secretsChanged {
-			newRawSecrets, err := toml.Marshal(&secrets)
-			if err != nil {
-				return fmt.Errorf("marshal secrets")
-			}
-			if err := os.WriteFile(*secretsPath, newRawSecrets, 0600); err != nil {
-				return fmt.Errorf("write secrets: %w", err)
-			}
-		}
-
 		rawOpts, err := os.ReadFile(*optsPath)
 		if err != nil {
 			return fmt.Errorf("read options: %w", err)
@@ -85,7 +52,7 @@ func main() {
 		if err := toml.Unmarshal(rawOpts, &opts); err != nil {
 			return fmt.Errorf("unmarshal options: %w", err)
 		}
-		if err := opts.MixSecrets(&secrets); err != nil {
+		if err := opts.MixSecretsFromFile(); err != nil {
 			return fmt.Errorf("mix secrets into options: %w", err)
 		}
 		opts.FillDefaults()
