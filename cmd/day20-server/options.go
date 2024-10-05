@@ -69,6 +69,9 @@ func (o *Options) MixSecretsFromFile() error {
 			return fmt.Errorf("write secrets: %w", err)
 		}
 	}
+	if err := o.MixSecrets(&secrets); err != nil {
+		return fmt.Errorf("mix secrets: %w", err)
+	}
 	return nil
 }
 
