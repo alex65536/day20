@@ -147,6 +147,8 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 	mux.Handle(prefix+"/font/", b.WrapStatic(http.FileServerFS(staticData)))
 	mux.Handle(prefix+"/js/", b.WrapStatic(http.FileServerFS(staticData)))
 	mux.Handle(prefix+"/favicon.ico", b.WrapStatic(http.FileServerFS(staticData)))
+	mux.Handle(prefix+"/favicon.png", b.WrapStatic(http.FileServerFS(staticData)))
+	mux.Handle(prefix+"/favicon.svg", b.WrapStatic(http.FileServerFS(staticData)))
 
 	// Pages, attaches & websockets.
 	mux.Handle(prefix+"/{$}", b.WrapPage(must(mainPage(log, &cfg, templ))))
