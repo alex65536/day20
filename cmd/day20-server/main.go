@@ -90,6 +90,8 @@ func main() {
 		}
 		opts.FillDefaults()
 
+		serverCmd.SilenceUsage = true
+
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
 

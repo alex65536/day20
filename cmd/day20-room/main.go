@@ -79,6 +79,8 @@ func main() {
 			token = strings.TrimSpace(string(data))
 		}
 
+		roomCmd.SilenceUsage = true
+
 		ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer cancel()
 
@@ -105,7 +107,6 @@ func main() {
 			default:
 				log.Error("fatal error", slogx.Err(err))
 				roomCmd.SilenceErrors = true
-				roomCmd.SilenceUsage = true
 				return err
 			}
 		}
