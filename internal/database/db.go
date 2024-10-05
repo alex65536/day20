@@ -374,6 +374,7 @@ func (d *DB) DeleteRoomToken(ctx context.Context, tokenHash string, userID strin
 
 func (d *DB) NewSessionStore(ctx context.Context, opts webui.SessionOptions) sessions.Store {
 	s := gormstore.New(d.db, opts.Key)
+	opts.AssignSessionOptions(s.SessionOpts)
 	go s.PeriodicCleanup(opts.CleanupInterval, ctx.Done())
 	return s
 }

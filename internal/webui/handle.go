@@ -46,7 +46,7 @@ func (o *SessionOptions) FillDefaults() {
 	}
 }
 
-func (o *SessionOptions) SetupSession(s *sessions.Options) {
+func (o *SessionOptions) AssignSessionOptions(s *sessions.Options) {
 	s.SameSite = http.SameSiteLaxMode
 	s.Secure = !o.Insecure
 	s.HttpOnly = true

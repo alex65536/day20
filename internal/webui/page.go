@@ -206,7 +206,6 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			userInf = &rawUserInfo
 		}
 		if session.IsNew {
-			p.cfg.opts.Session.SetupSession(session.Options)
 			if err := session.Save(req, w); err != nil {
 				log.Error("could not save session", slogx.Err(err))
 			}
