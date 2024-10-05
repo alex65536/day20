@@ -28,6 +28,7 @@ func (o *HTTPSOptions) FillDefaults() {}
 type Options struct {
 	Addr         string                       `toml:"addr"`
 	Port         uint16                       `toml:"port"`
+	Host         string                       `toml:"host"`
 	DB           database.Options             `toml:"db"`
 	WebUI        webui.Options                `toml:"webui"`
 	RoomKeeper   roomkeeper.Options           `toml:"roomkeeper"`
@@ -39,15 +40,11 @@ type Options struct {
 }
 
 func (o *Options) urlRoot() string {
-	schema, addr, port := "http", o.Addr, o.Port
+	schema := "http"
 	if o.HTTPS != nil {
 		schema = "https"
-		port = o.HTTPS.Port
 	}
-	if port != 0 {
-		return fmt.Sprintf("%v://%v:%v", schema, addr, port)
-	}
-	return fmt.Sprintf("%v://%v", schema, addr)
+	return fmt.Sprintf("%v://%v", schema, o.Host)
 }
 
 func (o *Options) SecureAddrWithPort() string {
@@ -75,6 +72,9 @@ func (o *Options) FillDefaults() {
 		if o.Port == 0 {
 			o.Port = 8080
 		}
+	}
+	if o.Host == "" {
+		o.Host = o.AddrWithPort()
 	}
 	o.DB.FillDefaults()
 	o.WebUI.FillDefaults()
