@@ -33,10 +33,10 @@ func (o ManagerOptions) Clone() ManagerOptions {
 
 func (o *ManagerOptions) FillDefaults() {
 	if o.GCInterval == 0 {
-		o.GCInterval = 5 * time.Minute
+		o.GCInterval = 30 * time.Minute
 	}
 	if o.InviteLinkExpiry == 0 {
-		o.InviteLinkExpiry = 1 * time.Hour
+		o.InviteLinkExpiry = 12 * time.Hour
 	}
 }
 

@@ -39,7 +39,7 @@ type SessionOptions struct {
 
 func (o *SessionOptions) FillDefaults() {
 	if o.CleanupInterval == 0 {
-		o.CleanupInterval = 30 * time.Minute
+		o.CleanupInterval = 1 * time.Hour
 	}
 	if o.MaxAge == 0 {
 		o.MaxAge = 42 * 24 * time.Hour

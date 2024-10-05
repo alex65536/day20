@@ -31,7 +31,7 @@ type Options struct {
 	Debug         bool          `toml:"debug"`
 	SlowThreshold time.Duration `toml:"slow-threshold"`
 	BusyTimeout   time.Duration `toml:"busy-timeout"`
-	UseWAL        bool          `toml:"use-wal"`
+	NoUseWAL      bool          `toml:"no-use-wal"`
 }
 
 func (o *Options) FillDefaults() {
@@ -72,7 +72,7 @@ func (d *DB) Close() {
 
 func buildPath(o Options) string {
 	var params []string
-	if o.UseWAL {
+	if !o.NoUseWAL {
 		params = append(params, "_journal_mode=WAL")
 		params = append(params, "_synchronous=NORMAL")
 	}
@@ -112,6 +112,10 @@ func (d *DB) parseColumns() error {
 
 func New(log *slog.Logger, o Options) (*DB, error) {
 	o.FillDefaults()
+
+	if o.Path == "" {
+		return nil, fmt.Errorf("no path to db")
+	}
 
 	log.Info("opening db")
 	db, err := gorm.Open(sqlite.Open(buildPath(o)), &gorm.Config{

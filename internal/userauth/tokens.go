@@ -19,7 +19,7 @@ func (o TokenCheckerOptions) Clone() TokenCheckerOptions {
 
 func (o *TokenCheckerOptions) FillDefaults() {
 	if o.CacheExpiryInterval == 0 {
-		o.CacheExpiryInterval = 5 * time.Minute
+		o.CacheExpiryInterval = 3 * time.Minute
 	}
 }
 
