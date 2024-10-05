@@ -87,6 +87,9 @@ func (o *Options) FillDefaults() {
 	o.TokenChecker.FillDefaults()
 	if o.HTTPS != nil {
 		o.HTTPS.FillDefaults()
+		if o.HTTPS.AllowedSecureDomains == nil {
+			o.HTTPS.AllowedSecureDomains = []string{o.Host}
+		}
 	}
 }
 
