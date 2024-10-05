@@ -450,21 +450,25 @@ func (d *DB) CreateContest(ctx context.Context, info scheduler.ContestInfo, data
 	})
 }
 
+func (d *DB) doUpdateContest(tx *gorm.DB, contestID string, data scheduler.ContestData) error {
+	if data.Match != nil {
+		err := tx.Select(d.matchDataCols).Where("contest_id = ?", contestID).
+			Updates(&Match{Data: *data.Match}).Error
+		if err != nil {
+			return fmt.Errorf("update match: %w", err)
+		}
+	}
+	err := tx.Select(d.contestDataCols).Where("id = ?", contestID).
+		Updates(&Contest{Data: data}).Error
+	if err != nil {
+		return fmt.Errorf("update contest: %w", err)
+	}
+	return nil
+}
+
 func (d *DB) UpdateContest(ctx context.Context, contestID string, data scheduler.ContestData) error {
 	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if data.Match != nil {
-			err := tx.Select(d.matchDataCols).Where("contest_id = ?", contestID).
-				Updates(&Match{Data: *data.Match}).Error
-			if err != nil {
-				return fmt.Errorf("update match: %w", err)
-			}
-		}
-		err := tx.Select(d.contestDataCols).Where("id = ?", contestID).
-			Updates(&Contest{Data: data}).Error
-		if err != nil {
-			return fmt.Errorf("update contest: %w", err)
-		}
-		return nil
+		return d.doUpdateContest(tx, contestID, data)
 	})
 }
 
@@ -489,7 +493,7 @@ func (d *DB) CreateRunningJob(ctx context.Context, job *scheduler.RunningJob) er
 	return nil
 }
 
-func (d *DB) FinishRunningJob(ctx context.Context, job *scheduler.FinishedJob) error {
+func (d *DB) FinishRunningJob(ctx context.Context, data *scheduler.ContestData, job *scheduler.FinishedJob) error {
 	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		delTx := tx.Where("id = ?", job.Job.ID).Delete(&scheduler.RunningJob{})
 		if delTx.RowsAffected == 0 {
@@ -502,6 +506,11 @@ func (d *DB) FinishRunningJob(ctx context.Context, job *scheduler.FinishedJob) e
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return fmt.Errorf("create finished job: %w", err)
+		}
+		if data != nil {
+			if err := d.doUpdateContest(tx, job.ContestID, *data); err != nil {
+				return fmt.Errorf("update contest: %w", err)
+			}
 		}
 		return nil
 	})

@@ -18,6 +18,6 @@ type DB interface {
 	UpdateContest(ctx context.Context, contestID string, data ContestData) error
 	GetContest(ctx context.Context, contestID string) (ContestInfo, ContestData, error)
 	CreateRunningJob(ctx context.Context, job *RunningJob) error
-	FinishRunningJob(ctx context.Context, job *FinishedJob) error
+	FinishRunningJob(ctx context.Context, data *ContestData, job *FinishedJob) error
 	ListContestSucceededJobs(ctx context.Context, contestID string) ([]FinishedJob, error)
 }

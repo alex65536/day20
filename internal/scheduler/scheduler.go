@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
@@ -19,9 +18,8 @@ import (
 )
 
 type Options struct {
-	MaxRunningContests int           `toml:"max-running-contests"`
-	DBSaveTimeout      time.Duration `toml:"db-save-timeout"`
-	MaxFailedJobs      int64         `toml:"max-failed-jobs"`
+	MaxRunningContests int   `toml:"max-running-contests"`
+	MaxFailedJobs      int64 `toml:"max-failed-jobs"`
 }
 
 func (o Options) Clone() Options {
@@ -32,9 +30,6 @@ func (o *Options) FillDefaults() {
 	if o.MaxRunningContests == 0 {
 		o.MaxRunningContests = 100
 	}
-	if o.DBSaveTimeout == 0 {
-		o.DBSaveTimeout = 10 * time.Second
-	}
 	if o.MaxFailedJobs == 0 {
 		o.MaxFailedJobs = 10
 	}
@@ -43,30 +38,27 @@ func (o *Options) FillDefaults() {
 type contestExt struct {
 	s     *Scheduler
 	sched *contestScheduler
-	dbMu  chan struct{}
+	dbMu  sync.Mutex
 }
 
 func newContestExt(s *Scheduler, sched *contestScheduler) *contestExt {
 	e := &contestExt{
 		s:     s,
 		sched: sched,
-		dbMu:  make(chan struct{}, 1),
 	}
-	e.dbMu <- struct{}{}
 	return e
 }
 
+func (c *contestExt) Synchronized(f func() error) error {
+	c.dbMu.Lock()
+	defer c.dbMu.Unlock()
+	return f()
+}
+
 func (c *contestExt) Save() {
-	ctx, cancel := context.WithTimeout(context.Background(), c.s.o.DBSaveTimeout)
-	defer cancel()
-	select {
-	case <-c.dbMu:
-	case <-ctx.Done():
-		c.s.log.Error("could not save contest state", slogx.Err(ctx.Err()))
-		return
-	}
-	defer func() { c.dbMu <- struct{}{} }()
-	err := c.s.db.UpdateContest(ctx, c.sched.Info().ID, c.sched.Data())
+	c.dbMu.Lock()
+	defer c.dbMu.Unlock()
+	err := c.s.db.UpdateContest(context.Background(), c.sched.Info().ID, c.sched.Data())
 	if err != nil {
 		c.s.log.Error("could not save contest state", slogx.Err(err))
 		return
@@ -190,7 +182,6 @@ func (s *Scheduler) NextJob(ctx context.Context) (*roomapi.Job, error) {
 		s.mu.Lock()
 		s.jobs[job.Job.ID] = job
 		s.mu.Unlock()
-		contest.Save()
 		return clone.Ptr(&job.Job), nil
 	}
 }
@@ -219,31 +210,43 @@ func (s *Scheduler) OnJobFinished(jobID string, status roomkeeper.JobStatus, gam
 		return
 	}
 
-	finishedJob, err := func() (*FinishedJob, error) {
-		if !contestOk {
-			s.log.Info("got job after contest finished", slog.String("job_id", jobID), slog.String("status", status.String()))
-			return nil, fmt.Errorf("got job after contest finished")
+	synchronized := func(f func() error) error {
+		if contestOk {
+			return contest.Synchronized(f)
+		} else {
+			return f()
 		}
-		job, err := contest.sched.FinalizeJob(jobID, status, game)
-		contest.Save()
-		s.delContestIfFinished(contest)
-		return job, err
-	}()
-	if err != nil {
-		finishedJob = &FinishedJob{
-			JobInfo: job.JobInfo.Clone(),
-			Status:  status,
-			PGN:     nil,
-		}
-		if finishedJob.Status.Kind != roomkeeper.JobAborted {
-			finishedJob.Status = roomkeeper.NewStatusAborted(err.Error())
-		}
-		addPGNToJobOrAbort(s.log, finishedJob, game)
 	}
 
-	if err := s.db.FinishRunningJob(context.Background(), finishedJob); err != nil {
-		s.log.Error("could not finish running job", slog.String("job_id", jobID), slogx.Err(err))
-	}
+	_ = synchronized(func() error {
+		finishedJob, contestData, err := func() (*FinishedJob, *ContestData, error) {
+			if !contestOk {
+				s.log.Info("got job after contest finished", slog.String("job_id", jobID), slog.String("status", status.String()))
+				return nil, nil, fmt.Errorf("got job after contest finished")
+			}
+			job, err := contest.sched.FinalizeJob(jobID, status, game)
+			s.delContestIfFinished(contest)
+			data := contest.sched.Data()
+			return job, &data, err
+		}()
+		if err != nil {
+			finishedJob = &FinishedJob{
+				JobInfo: job.JobInfo.Clone(),
+				Status:  status,
+				PGN:     nil,
+			}
+			if finishedJob.Status.Kind != roomkeeper.JobAborted {
+				finishedJob.Status = roomkeeper.NewStatusAborted(err.Error())
+			}
+			addPGNToJobOrAbort(s.log, finishedJob, game)
+		}
+
+		if err := s.db.FinishRunningJob(context.Background(), contestData, finishedJob); err != nil {
+			s.log.Error("could not finish running job", slog.String("job_id", jobID), slogx.Err(err))
+		}
+
+		return nil
+	})
 }
 
 func (s *Scheduler) CreateContest(ctx context.Context, settings ContestSettings) (ContestInfo, error) {
@@ -386,7 +389,7 @@ func New(ctx context.Context, log *slog.Logger, db DB, o Options) (*Scheduler, e
 	for _, job := range dbRunningJobs {
 		if _, ok := roomJobs[job.Job.ID]; !ok {
 			log.Warn("found running job not belonging to any room, aborting", slog.String("job_id", job.Job.ID))
-			if err := db.FinishRunningJob(ctx, &FinishedJob{
+			if err := db.FinishRunningJob(ctx, nil, &FinishedJob{
 				JobInfo: job.JobInfo.Clone(),
 				Status:  roomkeeper.NewStatusAborted("job lost by rooms"),
 				PGN:     nil,
