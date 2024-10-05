@@ -56,10 +56,12 @@ func NewFENBook(r io.Reader, source rand.Source) (Book, error) {
 		lineNo++
 		ln, err := br.ReadString('\n')
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if !errors.Is(err, io.EOF) {
+				return nil, fmt.Errorf("read: %w", err)
+			}
+			if ln == "" {
 				break
 			}
-			return nil, fmt.Errorf("read: %w", err)
 		}
 		ln = strings.TrimSpace(ln)
 		if ln == "" || strings.HasPrefix(ln, "#") {
@@ -109,10 +111,12 @@ func NewPGNLineBook(r io.Reader, source rand.Source) (Book, error) {
 		lineNo++
 		ln, err := br.ReadString('\n')
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if !errors.Is(err, io.EOF) {
+				return nil, fmt.Errorf("read: %w", err)
+			}
+			if ln == "" {
 				break
 			}
-			return nil, fmt.Errorf("read: %w", err)
 		}
 		ln = strings.TrimSpace(ln)
 		if ln == "" || strings.HasPrefix(ln, "#") {
