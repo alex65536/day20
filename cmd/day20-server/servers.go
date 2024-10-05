@@ -77,7 +77,13 @@ func (s *servers) Go() {
 			defer s.wg.Done()
 			log := s.log.With(slog.String("name", name))
 			log.Info("starting http server")
-			if err := serv.ListenAndServe(); err != nil {
+			var err error
+			if name == "secure" {
+				err = serv.ListenAndServeTLS("", "")
+			} else {
+				err = serv.ListenAndServe()
+			}
+			if err != nil {
 				if !errors.Is(err, http.ErrServerClosed) {
 					select {
 					case <-s.ctx.Done():
