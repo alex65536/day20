@@ -30,10 +30,16 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	)
 	switch m.kind {
 	case "page":
+		if len(w.Header().Values("Cache-Control")) == 0 {
+			w.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
+		}
 	case "attach":
+		if len(w.Header().Values("Cache-Control")) == 0 {
+			w.Header().Set("Cache-Control", "max-age=0, private, must-revalidate")
+		}
 	case "websocket":
 	case "static":
-		w.Header().Set("Cache-Control", "max-age=7200, public")
+		w.Header().Set("Cache-Control", "max-age=86400, public")
 	default:
 		panic("must not happen")
 	}

@@ -22,6 +22,8 @@ func (roomtokensNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, 
 		Token string
 	}
 
+	bc.SetCacheControl("no-store")
+
 	if bc.FullUser == nil {
 		return nil, httputil.MakeError(http.StatusForbidden, "not logged in")
 	}

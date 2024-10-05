@@ -81,6 +81,10 @@ func (bc *builderCtx) Redirect(target string) error {
 	return httputil.MakeRedirectError(http.StatusSeeOther, "redirect", bc.Config.prefix+target)
 }
 
+func (bc *builderCtx) SetCacheControl(control string) {
+	bc.writer.Header().Set("Cache-Control", control)
+}
+
 func (bc *builderCtx) UpgradeSession(newUser *userInfo) {
 	log := bc.Log
 	session, _ := bc.Config.sessionStore.Get(bc.Req, sessionName)
