@@ -47,7 +47,7 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	m.h.ServeHTTP(w, req)
 }
 
-func (b *middlewareBuilder) wrap (h http.Handler, kind string) http.Handler {
+func (b *middlewareBuilder) wrap(h http.Handler, kind string) http.Handler {
 	if kind == "page" {
 		h = b.CSRFProtect(h)
 	}
