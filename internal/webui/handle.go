@@ -1,12 +1,15 @@
 package webui
 
 import (
+	"compress/gzip"
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
 	"time"
 
+	"github.com/NYTimes/gziphandler"
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
@@ -66,6 +69,22 @@ type Options struct {
 	ServerID          string              `toml:"server-id"`
 	Session           SessionOptions      `toml:"session"`
 	CSRFKey           []byte              `toml:"-"`
+	Compression       string              `toml:"compression"`
+}
+
+func (o *Options) makeCompressor() (func(http.Handler) http.Handler, error) {
+	switch o.Compression {
+	case "none":
+		return func(h http.Handler) http.Handler { return h }, nil
+	case "gzip":
+		h, err := gziphandler.NewGzipLevelHandler(gzip.DefaultCompression)
+		if err != nil {
+			return nil, fmt.Errorf("create gzip handler: %w", err)
+		}
+		return h, nil
+	default:
+		return nil, fmt.Errorf("unknown compression %q", o.Compression)
+	}
 }
 
 func (o *Options) FillDefaults() {
@@ -80,6 +99,9 @@ func (o *Options) FillDefaults() {
 		o.RoomRPSBurst = 5
 	}
 	o.Session.FillDefaults()
+	if o.Compression == "" {
+		o.Compression = "gzip"
+	}
 }
 
 func (o Options) Clone() Options {
@@ -115,6 +137,7 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 		Log:         log,
 		Prefix:      prefix,
 		CSRFProtect: csrf.Protect(o.CSRFKey),
+		Compress:    must(o.makeCompressor()),
 	}
 	templ := must(newTemplator(&cfg))
 

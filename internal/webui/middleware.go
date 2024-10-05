@@ -11,6 +11,7 @@ type middlewareBuilder struct {
 	Log         *slog.Logger
 	Prefix      string
 	CSRFProtect func(http.Handler) http.Handler
+	Compress    func(http.Handler) http.Handler
 }
 
 type middleware struct {
@@ -46,18 +47,27 @@ func (m *middleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	m.h.ServeHTTP(w, req)
 }
 
+func (b *middlewareBuilder) wrap (h http.Handler, kind string) http.Handler {
+	if kind == "page" {
+		h = b.CSRFProtect(h)
+	}
+	h = &middleware{b: b, h: h, kind: kind}
+	h = b.Compress(h)
+	return h
+}
+
 func (b *middlewareBuilder) WrapPage(h http.Handler) http.Handler {
-	return &middleware{b: b, h: b.CSRFProtect(h), kind: "page"}
+	return b.wrap(h, "page")
 }
 
 func (b *middlewareBuilder) WrapAttach(h http.Handler) http.Handler {
-	return &middleware{b: b, h: h, kind: "attach"}
+	return b.wrap(h, "attach")
 }
 
 func (b *middlewareBuilder) WrapStatic(h http.Handler) http.Handler {
-	return &middleware{b: b, h: h, kind: "static"}
+	return b.wrap(h, "static")
 }
 
 func (b *middlewareBuilder) WrapWebSocket(h http.Handler) http.Handler {
-	return &middleware{b: b, h: h, kind: "websocket"}
+	return b.wrap(h, "websocket")
 }
