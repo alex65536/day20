@@ -164,7 +164,7 @@ var (
 )
 
 // Graham2014-1F.cgb opening book by Graham Banks <gbanksnz at gmail.com>.
-// Source URL: http://www.talkchess.com/forum3/viewtopic.php?t=50541#p549216
+// Source URL: https://www.talkchess.com/forum3/viewtopic.php?t=50541#p549216
 func Graham20141FBook() Book {
 	return graham20141FBook
 }
