@@ -12,6 +12,10 @@ func (t UTCTime) Value() (driver.Value, error) {
 	return time.Time(t), nil
 }
 
+func (t UTCTime) UTC() time.Time {
+	return time.Time(t).UTC()
+}
+
 func (t UTCTime) Local() time.Time {
 	return time.Time(t).Local()
 }

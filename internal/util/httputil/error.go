@@ -21,6 +21,17 @@ func (e *Error) Error() string {
 func (e *Error) Code() int       { return e.code }
 func (e *Error) Message() string { return e.message }
 
+func (e *Error) RedirLocation() string {
+	if e.headers == nil {
+		return ""
+	}
+	loc := e.headers["Location"]
+	if len(loc) == 0 {
+		return ""
+	}
+	return loc[0]
+}
+
 func (e *Error) ApplyHeaders(w http.ResponseWriter) {
 	if e.headers == nil {
 		return
