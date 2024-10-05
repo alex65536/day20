@@ -104,6 +104,9 @@ func main() {
 			case <-ctx.Done():
 			default:
 				log.Error("fatal error", slogx.Err(err))
+				roomCmd.SilenceErrors = true
+				roomCmd.SilenceUsage = true
+				return err
 			}
 		}
 		return nil
