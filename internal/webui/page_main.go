@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/alex65536/day20/internal/roomkeeper"
+	"github.com/alex65536/day20/internal/util/sliceutil"
 )
 
 type mainDataBuilder struct{}
@@ -13,12 +14,20 @@ type mainDataBuilder struct{}
 func (mainDataBuilder) Build(_ context.Context, bc builderCtx) (any, error) {
 	cfg := bc.Config
 
+	type item struct {
+		ID     string
+		Name   string
+		Active bool
+	}
+
 	type data struct {
-		Rooms []roomkeeper.RoomInfo
+		Rooms []item
 	}
 
 	d := &data{}
-	d.Rooms = cfg.Keeper.ListRooms()
+	d.Rooms = sliceutil.Map(cfg.Keeper.ListRooms(), func(s roomkeeper.RoomState) item {
+		return item{ID: s.Info.ID, Name: s.Info.Name, Active: s.JobID.IsSome()}
+	})
 	return d, nil
 }
 

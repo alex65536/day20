@@ -432,15 +432,18 @@ func (k *Keeper) Bye(ctx context.Context, req *roomapi.ByeRequest) (*roomapi.Bye
 	return &roomapi.ByeResponse{}, nil
 }
 
-func (k *Keeper) ListRooms() []RoomInfo {
+func (k *Keeper) ListRooms() []RoomState {
 	k.mu.RLock()
 	defer k.mu.RUnlock()
-	res := make([]RoomInfo, 0, len(k.rooms))
+	res := make([]RoomState, 0, len(k.rooms))
 	for _, room := range k.rooms {
-		res = append(res, room.room.Info())
+		res = append(res, RoomState{
+			Info:  room.room.Info(),
+			JobID: room.room.JobID(),
+		})
 	}
-	slices.SortFunc(res, func(a, b RoomInfo) int {
-		return cmp.Compare(a.ID, b.ID)
+	slices.SortFunc(res, func(a, b RoomState) int {
+		return cmp.Compare(b.Info.ID, a.Info.ID)
 	})
 	return res
 }

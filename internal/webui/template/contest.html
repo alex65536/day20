@@ -1,53 +1,154 @@
 {{define "title"}}Contest {{.Name}}{{end}}
 
 {{define "body"}}
-  <h1>Contest {{.Name}}</h1>
-  <div>{{.First}} vs {{.Second}}</div>
-  <div>Kind: {{.Kind}}</div>
-  <div>
-    Time control:
-    {{if .FixedTime}}
-      {{.FixedTime}} per move
-    {{else}}
-      {{.TimeControl}}
-    {{end}}
-  </div>
-  {{if .ScoreThreshold}}
-    <div>Score threshold: {{.ScoreThreshold}}</div>
-  {{end}}
-  <div>Total: {{.Total}}</div>
-  <div>
-    Status: {{.Status}}
-    {{if .Reason}}({{.Reason}}){{end}}
-  </div>
-  <div>
-    Progress:
-    {{if .Progress | gt 0.0}}
-      N/A
-    {{else}}
-      {{.Progress | printf "%.2f"}}%
-    {{end}}
-  </div>
-  <div>
-    <div>Results:</div>
-    <div>Win: {{.FirstWin}}</div>
-    <div>Draw: {{.Draw}}</div>
-    <div>Lose: {{.SecondWin}}</div>
-    <div>Score: {{.Score}}</div>
-    <div>LOS: {{.LOS | printf "%.2f"}}</div>
-    <div>Winner: {{.Winner}} {{if .WinnerConfidence}}(at p = {{.WinnerConfidence | printf "%.2f"}}){{end}}</div>
-    <div>Elo Diff: {{.EloDiff.Low | printf "%.2f"}}/{{.EloDiff.Avg | printf "%.2f"}}/{{.EloDiff.High | printf "%.2f"}} (low/avg/high, at p = 0.95)</div>
-  </div>
+  <h1>{{.Name}}</h1>
 
   <div>
-    <a href="/contest/{{.ID}}/pgn">PGN</a>
+    <a class="button" href="{{.ID | printf "/contest/%v/pgn" | asURL}}" target="_blank">PGN</a>
+    {{if .CanCancel}}
+      <form class="inline htmx-form" hx-post="{{.ID | printf "/contest/%v" | asURL}}" hx-swap="none">
+        {{.CSRFField}}
+        <input type="hidden" name="action" value="cancel">
+        <input class="error" type="submit" value="Cancel">
+      </form>
+    {{end}}
   </div>
 
-  {{if .CanCancel}}
-    <form action="/contest/{{.ID}}" method="post">
-      {{.CSRFField}}
-      <input type="hidden" name="action" value="cancel">
-      <input type="submit" value="Cancel">
-    </form>
-  {{end}}
+  <div class="errors" id="global-errors"></div>
+
+  <section>
+    <h3>Info</h3>
+    <table>
+      <tr>
+        <td>Kind</td>
+        <td>{{.Kind.PrettyString}}</td>
+      </tr>
+      <tr>
+        <td>First</td>
+        <td>{{.First}}</td>
+      </tr>
+      <tr>
+        <td>Second</td>
+        <td>{{.Second}}</td>
+      </tr>
+      <tr>
+        <td>Status</td>
+        <td>
+          <span class="contest-status-{{.Status.Kind}}">{{.Status.Kind.PrettyString}}</span>
+          {{if .Status.Reason}}
+            <span>({{.Status.Reason}})</span>
+          {{end}}
+        </td>
+      </tr>
+      <tr>
+        <td>Progress</td>
+        <td>{{template "part/progress" .Progress}}</td>
+      </tr>
+      <tr>
+        <td>Games</td>
+        <td>{{.Played}} of {{.Total}}</td>
+      </tr>
+      <tr>
+        <td>Time control</td>
+        <td>
+          {{if .FixedTime}}
+            {{.FixedTime}} per move
+          {{else if .TimeControl}}
+            {{.TimeControl}}
+          {{else}}
+            Unknown
+          {{end}}
+        </td>
+      </tr>
+      {{if .ScoreThreshold}}
+        <tr>
+          <td>Score threshold</td>
+          <td>{{.ScoreThreshold}}</td>
+        </tr>
+      {{end}}
+      <tr>
+        <td>Opening book</td>
+        <td>
+          {{if .OpeningBook.Kind | eq "builtin"}}
+            {{if .OpeningBook.Data | eq "graham_2014_1f"}}
+              Graham2024-1F (by Graham Banks)
+            {{else if .OpeningBook.Data | eq "gb_select_2020"}}
+              GBSelect2020 (by Graham Banks)
+            {{else}}
+              Unknown built-in
+            {{end}}
+          {{else}}
+            {{if .OpeningBook.Kind | eq "pgn_line"}}
+              PGN line list
+              <script>var openingBookFname = 'book.pgn'</script>
+            {{else if .OpeningBook.Kind | eq "fen"}}
+              FEN list
+              <script>var openingBookFname = 'book.fen'</script>
+            {{else}}
+              Unknown
+              <script>var openingBookFname = 'book.txt'</script>
+            {{end}}
+            <span class="opening-book-data" hidden>{{.OpeningBook.Data}}</span>
+            &nbsp;
+            <span class="button icon-download" onclick="eltDownload(this.parentElement, '.opening-book-data', openingBookFname)"></span>
+          {{end}}
+        </td>
+      <tr>
+    </table>
+  </section>
+
+  <section>
+    <h3>Results</h3>
+    <table>
+      <tr>
+        <td>First win</td>
+        <td>{{.FirstWin}}</td>
+      </tr>
+      <tr>
+        <td>Draw</td>
+        <td>{{.Draw}}</td>
+      </tr>
+      <tr>
+        <td>Second win</td>
+        <td>{{.SecondWin}}</td>
+      </tr>
+      <tr>
+        <td>Score</td>
+        <td>{{.Score}}</td>
+      </tr>
+      <tr>
+        <td>LOS</td>
+        <td>
+          {{if .LOS | ne .LOS}}
+            <span style="color: gray">N/A</span>
+          {{else}}
+            <span style="color: {{ .LOS | mixColors "#ff4136" "#2ecc40" }};">{{.LOS | printf "%.2f"}}</td>
+          {{end}}
+        </td>
+      </tr>
+      <tr>
+        <td>Winner</td>
+        <td>
+          <span class="contest-winner-{{.Winner}} {{if .WinnerConfidence}}contest-confidence-{{.WinnerConfidence}}{{end}}">
+            {{.Winner.PrettyString}}
+          </span>
+          {{if .WinnerConfidence}}
+            (at p = 0.{{.WinnerConfidence}})
+          {{end}}
+        </td>
+      </tr>
+      <tr>
+        <td>Elo diff low (p = 0.95)</td>
+        <td>{{.EloDiff.Low | fmtFloatWithInf 2}}</td>
+      </tr>
+      <tr>
+        <td>Elo diff avg</td>
+        <td>{{.EloDiff.Avg | fmtFloatWithInf 2}}</td>
+      </tr>
+      <tr>
+        <td>Elo diff high (p = 0.95)</td>
+        <td>{{.EloDiff.High | fmtFloatWithInf 2}}</td>
+      </tr>
+    </table>
+  </section>
 {{end}}

@@ -20,11 +20,6 @@ import (
 	"github.com/gorilla/csrf"
 )
 
-type contestsNewData struct {
-	CSRFField template.HTML
-	Errors    []string
-}
-
 type contestsNewDataBuilder struct{}
 
 func (contestsNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
@@ -33,52 +28,64 @@ func (contestsNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, er
 	log := bc.Log
 	user := bc.FullUser
 
+	type data struct {
+		CSRFField template.HTML
+	}
+
 	if user == nil || !user.Perms.Get(userauth.PermRunContests) {
 		return nil, httputil.MakeError(http.StatusForbidden, "operation not permitted")
 	}
 
-	data := &contestsNewData{
-		CSRFField: csrf.TemplateField(req),
-	}
-
 	switch req.Method {
 	case http.MethodGet:
-		return data, nil
+		return &data{
+			CSRFField: csrf.TemplateField(req),
+		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
 		}
 		var info scheduler.ContestInfo
-		serr := func() string {
+		errs := func() []string {
+			var errs []string
 			var settings scheduler.ContestSettings
+
 			settings.Name = req.FormValue("name")
 			if settings.Name == "" {
-				return "name not specified"
+				errs = append(errs, "name not specified")
+			} else if utf8.RuneCountInString(settings.Name) > scheduler.ContestNameMaxLen {
+				errs = append(errs, fmt.Sprintf("name exceeds %v runes", scheduler.ContestNameMaxLen))
 			}
-			if utf8.RuneCountInString(settings.Name) > scheduler.ContestNameMaxLen {
-				return fmt.Sprintf("name exceeds %v runes", scheduler.ContestNameMaxLen)
-			}
+
 			switch req.FormValue("time") {
 			case "fixed":
 				ms, err := strconv.ParseInt(req.FormValue("time-fixed-value"), 10, 64)
 				if err != nil {
-					return "no fixed time"
+					errs = append(errs, "no fixed time")
+					break
 				}
 				if ms > 1e9 {
-					return "fixed time too large"
+					errs = append(errs, "fixed time too large")
+					break
 				}
 				fixedTime := time.Duration(ms) * time.Millisecond
 				settings.FixedTime = &fixedTime
 			case "control":
 				c, err := clock.ControlFromString(req.FormValue("time-control-value"))
 				if err != nil {
-					return "bad time control: " + err.Error()
+					errs = append(errs, "bad time control: "+err.Error())
+					break
 				}
 				settings.TimeControl = &c
 			default:
-				return "bad choice for time"
+				errs = append(errs, "bad choice for time")
 			}
+
+			hasBook := true
 			switch req.FormValue("openings") {
 			case "gb20":
 				settings.OpeningBook = scheduler.OpeningBook{
@@ -97,54 +104,70 @@ func (contestsNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, er
 				}
 			case "pgn-line":
 				settings.OpeningBook = scheduler.OpeningBook{
-					Kind: scheduler.OpeningsFEN,
+					Kind: scheduler.OpeningsPGNLine,
 					Data: req.FormValue("openings-value"),
 				}
 			default:
-				return "bad opening kind"
+				errs = append(errs, "bad opening kind")
+				hasBook = false
 			}
-			if _, err := settings.OpeningBook.Book(randutil.DefaultSource()); err != nil {
-				return "bad opening book: " + err.Error()
+			if hasBook {
+				if _, err := settings.OpeningBook.Book(randutil.DefaultSource()); err != nil {
+					errs = append(errs, "bad opening book: "+err.Error())
+				}
 			}
+
 			if t := req.FormValue("score-threshold"); t != "" {
 				tv, err := strconv.ParseInt(t, 10, 32)
 				if err != nil {
-					return "bad score threshold"
+					errs = append(errs, "bad score threshold")
+				} else {
+					settings.ScoreThreshold = int32(tv)
 				}
-				settings.ScoreThreshold = int32(tv)
 			}
+
 			settings.Kind = scheduler.ContestMatch
 			settings.Match = &scheduler.MatchSettings{}
+
 			settings.Players = []roomapi.JobEngine{
 				{Name: req.FormValue("first")},
 				{Name: req.FormValue("second")},
 			}
 			for i, p := range settings.Players {
 				if len(p.Name) == 0 {
-					return fmt.Sprintf("no name for engine #%v", i+1)
+					errs = append(errs, fmt.Sprintf("no name for engine #%v", i+1))
 				}
 			}
+
 			games, err := strconv.ParseInt(req.FormValue("games"), 10, 64)
 			if err != nil {
-				return "invalid number of games"
+				errs = append(errs, "invalid number of games")
+			} else if games <= 0 {
+				errs = append(errs, "non-positive number of games")
+			} else {
+				settings.Match.Games = games
 			}
-			if games <= 0 {
-				return "non-positive number of games"
+
+			if len(errs) != 0 {
+				return errs
 			}
-			settings.Match.Games = games
-			localInfo, err := cfg.Scheduler.CreateContest(ctx, settings)
+
+			err = settings.Validate()
+			if err != nil {
+				return []string{err.Error()}
+			}
+
+			info, err = cfg.Scheduler.CreateContest(ctx, settings)
 			if err != nil {
 				log.Warn("failed to create contest", slogx.Err(err))
-				return "failed to create contest"
+				return []string{"failed to create contest"}
 			}
-			info = localInfo
-			return ""
+			return nil
 		}()
-		if serr != "" {
-			data.Errors = []string{serr}
-			return data, nil
+		if len(errs) != 0 {
+			return &errorsPartData{Errors: errs}, nil
 		}
-		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "contest created", "/contest/"+info.ID)
+		return nil, bc.Redirect("/contest/" + info.ID)
 	default:
 		return nil, httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 	}

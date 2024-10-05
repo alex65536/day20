@@ -1,67 +1,69 @@
-{{define "title"}}{{.Username}}&apos;s profile{{end}}
+{{define "title"}}{{.User.Username}}&apos;s profile{{end}}
 
 {{define "body"}}
-  <div>Username: {{.Username}}</div>
-  <div>Permissions: {{.PermStr}}</div>
+  <h2>{{template "part/user" .User}}</h2>
+
+  <section>
+    {{if .CanInvite}}
+      <a class="button" href="{{"/invites" | asURL}}">Invitations</a>
+    {{end}}
+
+    {{if .CanHostRooms}}
+      <a class="button" href="{{"/roomtokens" | asURL}}">Room tokens</a>
+    {{end}}
+  </section>
 
   {{if .CanChangePassword}}
-    <div>
-      <div>Change password:</div>
-      <form action="/user/{{.Username}}" method="post">
-        {{range $i, $err := .ChangePasswordErrors}}
-          <div>
-            Error: {{$err}}
-          </div>
-        {{end}}
+    <div class="card">
+      <header>Change password</header>
+      <form class="htmx-form" hx-post="{{.User.Username | printf "/user/%v" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
         {{.CSRFField}}
         <input type="hidden" name="action" value="password">
-        <div>
-          <label for="old-password">Old password:</label>
-          <input type="password" id="old-password" name="old-password">
-        </div>
-        <div>
-          <label for="old-password">New password:</label>
-          <input type="password" id="new-password" name="new-password">
-        </div>
-        <div>
-          <label for="old-password">New password (again):</label>
-          <input type="password" id="new-password2" name="new-password2">
-        </div>
-        <input type="submit" value="Save">
+        <section>
+          <label>
+            Old password:
+            <input type="password" name="old-password">
+          </label>
+          <label>
+            New password:
+            <input type="password" name="new-password">
+          </label>
+          <label>
+            New password (again):
+            <input type="password" name="new-password2">
+          </label>
+        </section>
+        <footer>
+          <div class="errors"></div>
+          <input type="submit" value="Save">
+        </footer>
       </form>
     </div>
   {{end}}
 
   {{if .CanChangePerms}}
-    <div>
-      <div>Change permissions:</div>
-      <form action="/user/{{.Username}}" method="post">
-      {{range $i, $err := .ChangePermsErrors}}
-        <div>
-          Error: {{$err}}
-        </div>
-      {{end}}
-      {{.CSRFField}}
-      <input type="hidden" name="action" value="perms">
-      <div>
-        <input type="checkbox" id="perm-blocked" name="perm-blocked" value="true" {{if .UserBlocked}}checked{{end}}>
-        <label for="perm-blocked">Blocked</label>
-      </div>
-      {{range $i, $perm := .Perms}}
-        <div>
-          <input type="checkbox" id="{{$perm.Field}}" name="{{$perm.Field}}" value="true" {{if $perm.Active}}checked{{end}}>
-          <label for="{{$perm.Field}}">{{$perm.Name}}</label>
-        </div>
-      {{end}}
-      <input type="submit" value="Save">
+    <div class="card">
+      <header>Change permissions</header>
+      <form class="htmx-form" hx-post="{{.User.Username | printf "/user/%v" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+        {{.CSRFField}}
+        <input type="hidden" name="action" value="perms">
+        <section>
+          <label>
+            <input type="checkbox" name="perm-blocked" value="true" {{if .User.Perms.IsBlocked}}checked{{end}}>
+            <span class="checkable">Blocked</span>
+          </label>
+          {{range $i, $perm := .User.Perms.Perms}}
+            <label>
+              <input type="checkbox" name="perm-{{$perm.Kind}}" value="true" {{if $perm.Active}}checked{{end}}>
+              <span class="checkable">{{$perm.Kind.PrettyString}}</span>
+            </label>
+          {{end}}
+        </section>
+        <footer>
+          <div class="errors"></div>
+          <input type="submit" value="Save">
+        </footer>
+      </form>
     </div>
-  {{end}}
-
-  {{if .CanInvite}}
-    <a href="/invites">Invite links</a>
-  {{end}}
-
-  {{if .CanHostRooms}}
-    <a href="/roomtokens">Room tokens</a>
   {{end}}
 {{end}}

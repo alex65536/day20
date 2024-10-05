@@ -1,41 +1,69 @@
 {{define "title"}}Invitations{{end}}
 
 {{define "body"}}
-  <div>
-    <form action="/invites" method="post">
-      <span>Generate new link:</span>
+  <h1>Invitations</h1>
+
+  <section>
+    <a class="button icon-arrow-left" href="{{"/profile" | asURL}}">Back</a>
+  </section>
+
+  <div class="card">
+    <header>Generate invite link</header>
+    <form class="htmx-form" hx-post="{{"/invites" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
       {{.CSRFField}}
       <input type="hidden" name="action" value="invite">
-      <label for="invite-label">Label:</label>
-      <input type="text" name="invite-label" id="invite-label">
-      <span>Permissions:</span>
-      {{range $i, $perm := .Perms}}
-        <input type="checkbox" id="{{$perm.Field}}" name="{{$perm.Field}}" value="true">
-        <label for="{{$perm.Field}}">{{$perm.Name}}</label>
-      {{end}}
-      <input type="submit" value="Generate">
+      <section>
+        <input type="text" name="invite-label" placeholder="Label">
+      </section>
+      <section>
+        <span>Permissions:&nbsp;</span>
+        {{range $i, $perm := .Perms.Perms}}
+          <label>
+            <input type="checkbox" name="invite-perm-{{$perm.Kind}}" value="true">
+            <span class="checkable">{{$perm.Kind.PrettyString}}</label>
+          </label>
+        {{end}}
+      </section>
+      <footer>
+        <div class="errors"></div>
+        <input type="submit" value="Create">
+      </footer>
     </form>
   </div>
-  <table>
+
+  <div class="errors" id="global-errors"></div>
+
+  <table class="compact">
     <tr>
-      <th>Label</th>
-      <th>Link</th>
-      <th>Permissions</th>
-      <th>Expires at</th>
-      <th></th>
+      <th class="expand">Link</th>
+      <th class="nowrap">Permissions</th>
+      <th class="nowrap">Expires</th>
+      <th class="nowrap">Actions</th>
     </tr>
     {{range $i, $inv := .Invites}}
       <tr>
-        <td>{{$inv.Label}}</td>
-        <td><a href="{{$inv.Link}}">{{$inv.Link}}</a></td>
-        <td>{{$inv.Perms}}</td>
-        <td>{{$inv.ExpiresAt}}</td>
+        <td class="expand">
+          <a href="{{$inv.Link}}">{{$inv.Label}}</a>
+        </td>
         <td>
-          <form action="/invites" method="post">
+          {{range $i, $perm := $inv.Perms.Perms}}
+            {{if $perm.Active}}
+              <div>
+                <span class="label nomargin perm-{{$perm.Kind}}">{{$perm.Kind.PrettyString}}</span>
+              </div>
+            {{end}}
+          {{end}}
+        </td>
+        <td class="nowrap">
+          {{template "part/human_time" $inv.ExpiresAt}}
+        </td>
+        <td class="nowrap">
+          <span class="button icon-copy" onclick="hrefToClipboard(this.closest('tr'), 'td > a')"></span>
+          <form class="inline htmx-form" hx-post="{{"/invites" | asURL}}" hx-swap="none">
             {{$.CSRFField}}
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="hash" value="{{$inv.Hash}}">
-            <input type="submit" value="Delete">
+            <button type="submit" class="error icon-trash"></button>
           </form>
         </td>
       </tr>

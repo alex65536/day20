@@ -121,6 +121,7 @@ func Handle(ctx context.Context, log *slog.Logger, mux *http.ServeMux, prefix st
 	// Static.
 	mux.Handle(prefix+"/img/", b.WrapStatic(http.FileServerFS(staticData)))
 	mux.Handle(prefix+"/css/", b.WrapStatic(http.FileServerFS(staticData)))
+	mux.Handle(prefix+"/font/", b.WrapStatic(http.FileServerFS(staticData)))
 	mux.Handle(prefix+"/js/", b.WrapStatic(http.FileServerFS(staticData)))
 	mux.Handle(prefix+"/favicon.ico", b.WrapStatic(http.FileServerFS(staticData)))
 

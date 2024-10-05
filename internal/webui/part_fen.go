@@ -8,7 +8,7 @@ import (
 
 type fenPartData struct {
 	FEN       string
-	AJAXAttrs template.HTML
+	AJAXAttrs template.HTMLAttr
 }
 
 func buildFENPartData(board *chess.Board) *fenPartData {

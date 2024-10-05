@@ -13,11 +13,6 @@ import (
 	"github.com/gorilla/csrf"
 )
 
-type loginData struct {
-	Errors    []string
-	CSRFField template.HTML
-}
-
 type loginDataBuilder struct{}
 
 func (loginDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
@@ -25,17 +20,23 @@ func (loginDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 	cfg := bc.Config
 	log := bc.Log
 
+	type data struct {
+		CSRFField template.HTML
+	}
+
 	if bc.UserInfo != nil {
-		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "already logged in", "/")
+		return nil, bc.Redirect("/")
 	}
 
 	switch req.Method {
 	case http.MethodGet:
-		return &loginData{
-			Errors:    nil,
+		return &data{
 			CSRFField: csrf.TemplateField(req),
 		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
@@ -59,18 +60,15 @@ func (loginDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 			return user, ""
 		}()
 		if strErr != "" {
-			return &loginData{
-				Errors:    []string{strErr},
-				CSRFField: csrf.TemplateField(req),
-			}, nil
+			return &errorsPartData{Errors: []string{strErr}}, nil
 		}
 		bc.ResetSession(makeUserInfo(&user))
-		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "login successful", "/")
+		return nil, bc.Redirect("/")
 	default:
 		return nil, httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
 func loginPage(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	return newPage(log, cfg, pageOptions{NoShowAuth: true}, templ, loginDataBuilder{}, "login")
+	return newPage(log, cfg, pageOptions{}, templ, loginDataBuilder{}, "login")
 }

@@ -1,23 +1,26 @@
 {{define "title"}}Log in{{end}}
 
 {{define "body"}}
-  <form method="post" action="/login">
-    {{range $i, $err := .Errors}}
-      <div>
-        Error: {{$err}}
-      </div>
-    {{end}}
-    {{.CSRFField}}
-    <div>
-      <label for="username">Username:</label>
-      <input type="text" id="username" name="username">
-    </div>
-    <div>
-      <label for="password">Password:</label>
-      <input type="password" id="password" name="password">
-    </div>
-    <div>
-      <input type="submit" value="Log in">
-    </div>
-  </form>
+  <div class="card">
+    <header>Log in</header>
+    <form class="htmx-form" hx-post="{{"/login" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+      {{.CSRFField}}
+
+      <section>
+        <label>
+          Username
+          <input type="text" name="username">
+        </label>
+        <label>
+          Password
+          <input type="password" name="password">
+        </label>
+      </section>
+
+      <footer>
+        <div class="errors"></div>
+        <input type="submit" value="Log in">
+      </footer>
+    </form>
+  </div>
 {{end}}

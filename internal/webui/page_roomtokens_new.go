@@ -11,16 +11,16 @@ import (
 	"github.com/alex65536/day20/internal/util/slogx"
 )
 
-type roomtokensNewData struct {
-	Token string
-}
-
 type roomtokensNewDataBuilder struct{}
 
 func (roomtokensNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 	req := bc.Req
 	cfg := bc.Config
 	log := bc.Log
+
+	type data struct {
+		Token string
+	}
 
 	if bc.FullUser == nil {
 		return nil, httputil.MakeError(http.StatusForbidden, "not logged in")
@@ -35,12 +35,16 @@ func (roomtokensNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, 
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
 		}
-		tok, err := cfg.UserManager.GenerateRoomToken(ctx, req.FormValue("token-label"), bc.FullUser)
+		label := req.FormValue("token-label")
+		if label == "" {
+			return nil, httputil.MakeError(http.StatusBadRequest, "no label")
+		}
+		tok, err := cfg.UserManager.GenerateRoomToken(ctx, label, bc.FullUser)
 		if err != nil {
 			log.Warn("could not generate room token", slogx.Err(err))
 			return nil, fmt.Errorf("generate room token: %w", err)
 		}
-		return &roomtokensNewData{Token: tok}, nil
+		return &data{Token: tok}, nil
 	default:
 		return nil, httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 	}

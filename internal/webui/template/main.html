@@ -1,11 +1,20 @@
 {{define "title"}}Rooms{{end}}
+
 {{define "body"}}
-<h1>Available Rooms</h1>
-<ul>
-  {{range $i, $room := .Rooms}}
-    <li><a href="{{$room.ID | printf "/room/%v" | asURL}}">Room {{$room.Name}}</a></li>
-  {{end}}
-</ul>
-<a href="/users">Users</a>
-<a href="/contests">Contests</a>
+  <h1>Rooms</h1>
+  <ul class="no-bullets">
+    {{range $i, $room := .Rooms}}
+      <li>
+        <span
+          {{if $room.Active}}
+            class="icon-play icon-cl-green"
+          {{else}}
+            class="icon-pause icon-cl-yellow"
+          {{end}}
+        >
+          <a href="{{$room.ID | printf "/room/%v" | asURL}}">{{$room.Name}}</a>
+        </span>
+      </li>
+    {{end}}
+  </ul>
 {{end}}

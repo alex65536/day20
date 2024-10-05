@@ -1,0 +1,303 @@
+/* --- Framework enhancements --- */
+
+/* Disable annoying animation for items in nav */
+nav .show:checked ~ .menu > * {
+  transition: none !important;
+}
+
+/* Gray out disabled input */
+input[type='text'] {
+  transition: all .3s;
+}
+
+input[type='text'][disabled] {
+  background: #f2f2f2;
+  color: gray;
+}
+
+
+/* --- Utilities --- */
+
+/* Labels without margins */
+.label.nomargin {
+  margin: 0;
+}
+
+/* Lists with no bullets */
+ul.no-bullets {
+  list-style-type: none;
+}
+
+/* Allow to tag inputs with a label to the right */
+.right-tagged {
+  display: table;
+  width: 100%;
+}
+
+.right-tagged > *:nth-child(1) {
+  display: table-cell;
+  width: 100%;
+}
+
+.right-tagged > *:nth-child(2) {
+  display: table-cell;
+  padding-left: 0.5em;
+  width: 1px;
+}
+
+/* Main */
+main {
+  width: 90%;
+  max-width: 800px;
+  margin: 80px auto 20px;
+}
+
+main.wide {
+  max-width: 1400px;
+}
+
+/* Tables */
+table.compact th, table.compact td {
+  padding-right: 1.2em;
+}
+
+table.compact th:last-child, table.compact td:last-child {
+  padding-right: 0.6em;
+}
+
+td.expand, th.expand {
+  width: 100%;
+}
+
+td.nowrap, th.nowrap {
+  white-space: nowrap;
+}
+
+/* Misc */
+.inline {
+  display: inline;
+}
+
+.smaller {
+  font-size: 0.8em;
+}
+
+.bigger {
+  font-size: 1.2em;
+}
+
+
+/* --- Icons --- */
+
+/* Adapted from https://github.com/stephenhutchings/typicons.font/blob/master/src/font/typicons.css */
+@font-face {
+  font-family: 'typicons';
+  src: url('/font/typicons.eot?v2.1.2#iefix') format('embedded-opentype'),
+       url('/font/typicons.woff2?v2.1.2') format('woff2'),
+       url('/font/typicons.ttf?v2.1.2') format('truetype');
+}
+
+/* Adapted from https://github.com/franciscop/picnic/blob/master/docs/style/font/_fontello.scss */
+[class^='icon-']:before, [class*=' icon-']:before {
+  display: inline-block;
+  font-family: 'typicons';
+  font-size: 1.1em;
+  font-style: normal;
+  font-weight: normal;
+  speak: none;
+  text-align: center;
+  text-decoration: inherit;
+  width: 1em;
+  margin-right: 0.3em;
+}
+
+[class^='icon-']:empty:before, [class*=' icon-']:empty:before {
+  margin-right: 0;
+}
+
+.button[class^='icon-']:empty, .button[class*=' icon-']:empty,
+button[class^='icon-']:empty, button[class*=' icon-']:empty,
+[type='submit'][class^='icon-']:empty, [type='submit'][class*=' icon-']:empty {
+  padding-left: .6em;
+  padding-right: .6em;
+}
+
+.icon-user:before { content: '\e12c'; }
+.icon-menu:before { content: '\e116'; }
+.icon-play:before { content: '\e0b0'; }
+.icon-pause:before { content: '\e0ac'; }
+.icon-record:before { content: '\e0b2'; }
+.icon-record-outline:before { content: '\e0b1'; }
+.icon-copy:before { content: '\e04a'; }
+.icon-trash:before { content: '\e123'; }
+.icon-plus:before { content: '\e0cf'; }
+.icon-download:before { content: '\e065'; }
+.icon-arrow-left:before { content: '\e00d'; }
+
+.icon-cl-green:before { color: green; }
+.icon-cl-yellow:before { color: goldenrod; }
+.icon-cl-gray:before { color: gray; }
+
+
+/* --- General --- */
+
+.errors {
+  color: red;
+}
+
+
+/* --- Room --- */
+
+.room-layout {
+  display: grid;
+  grid-template-areas:
+    'board black'
+    'board empty'
+    'board white'
+    'board bttns';
+  column-gap: 20px;
+  grid-auto-columns: min(50%, calc(95vh - 80px - 3em)) auto;
+}
+
+@media screen and (max-width: 750px) {
+  .room-layout {
+    grid-template-areas:
+      'white'
+      'board'
+      'black'
+      'bttns';
+    grid-auto-columns: 100%;
+  }
+}
+
+.room-layout > section {
+  min-width: 0;
+  min-height: 0;
+}
+
+.room-layout > section.room-white { grid-area: white; }
+.room-layout > section.room-black { grid-area: black; }
+.room-layout > section.room-board { grid-area: board; }
+.room-layout > section.room-bttns { grid-area: bttns; }
+
+.fen-outer {
+  display: grid;
+  grid-template-columns: max-content auto max-content;
+  column-gap: 0.5em;
+  align-items: center;
+}
+
+.fen-outer > .fen {
+  display: block;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-header {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  column-gap: 0.5em;
+}
+
+.white-chess-clock, .black-chess-clock {
+  min-width: 5em;
+  font-size: 1.6em;
+  font-weight: bold;
+  text-align: center;
+  vertical-align: middle;
+  margin: 0;
+}
+
+.white-chess-clock {
+  background-color: #f0f0f0;
+  color: black;
+}
+
+.black-chess-clock {
+  background-color: #121212;
+  color: white;
+}
+
+.player-color {
+  font-weight: bold;
+}
+
+.pv {
+  font-size: 0.8em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0.2em 0;
+}
+
+.player-stats .key {
+  font-weight: bold;
+}
+
+
+/* --- Users and permissions --- */
+
+.perm-invite { background-color: #0074d9; }
+.perm-discuss { background-color: #8c00d9; }
+.perm-run-contests { background-color: #d9a900; }
+.perm-host-rooms { background-color: #5bd900; }
+.perm-admin { background-color: #ff4136; }
+
+.perm-blocked {
+  background-color: #afafaf;
+}
+
+.perm-owner {
+  background-color: #990800;
+  color: #ffcb33;
+  font-weight: bold;
+}
+
+.user-blocked {
+  color: gray;
+  text-decoration: line-through;
+}
+
+.user-owner {
+  color: #990800;
+}
+
+
+/* --- Contests --- */
+
+.contest-status-running {
+  color: #0074d9;
+  font-weight: bold;
+}
+
+.contest-status-abort {
+  color: gray;
+  font-weight: bold;
+}
+
+.contest-status-fail {
+  color: #ff4136;
+  font-weight: bold;
+}
+
+.contest-status-success {
+  color: #2ecc40;
+  font-weight: bold;
+}
+
+.contest-confidence-97, .contest-confidence-99 { font-weight: bold; }
+
+.contest-winner-unclear { color: #ff851b; }
+
+.contest-winner-first.contest-confidence-90 { color: #2b6dbf; }
+.contest-winner-first.contest-confidence-95 { color: #176620; }
+.contest-winner-first.contest-confidence-97 { color: #1e872a; }
+.contest-winner-first.contest-confidence-99 { color: #2ecc40; }
+
+.contest-winner-second.contest-confidence-90 { color: #942ecc; }
+.contest-winner-second.contest-confidence-95 { color: #80211b; }
+.contest-winner-second.contest-confidence-97 { color: #ab2c24; }
+.contest-winner-second.contest-confidence-99 { color: #ff4136; }

@@ -13,7 +13,7 @@ import (
 type cursorPartData struct {
 	JSON         string
 	ForceRefresh bool
-	AJAXAttrs    template.HTML
+	AJAXAttrs    template.HTMLAttr
 }
 
 func buildCursorPartData(log *slog.Logger, cursor maybe.Maybe[delta.RoomCursor], forceRefresh bool) *cursorPartData {

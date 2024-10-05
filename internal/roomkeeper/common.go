@@ -36,7 +36,7 @@ func (k JobStatusKind) String() string {
 	case JobFailed:
 		return "fail"
 	default:
-		return "bad"
+		return "?"
 	}
 }
 
@@ -74,6 +74,11 @@ func NewStatusFailed(reason string) JobStatus {
 type RoomInfo struct {
 	ID   string `gorm:"primaryKey"`
 	Name string
+}
+
+type RoomState struct {
+	Info  RoomInfo
+	JobID maybe.Maybe[string]
 }
 
 type RoomFullData struct {

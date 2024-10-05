@@ -1,31 +1,44 @@
-{{define "title"}}Room Tokens{{end}}
+{{define "title"}}Room tokens{{end}}
 
 {{define "body"}}
-  <div>
-    <form action="/roomtokens/new" method="post">
-      <span>Generate new token:</span>
+  <h1>Room tokens</h1>
+
+  <section>
+    <a class="button icon-arrow-left" href="{{"/profile" | asURL}}">Back</a>
+  </section>
+
+  <section>
+    <form action="{{"/roomtokens/new" | asURL}}" method="post">
       {{.CSRFField}}
-      <label for="token-label">Label:</label>
-      <input type="text" name="token-label" id="token-label">
-      <input type="submit" value="Generate">
+      <footer>
+        <div class="right-tagged">
+          <input type="text" required name="token-label" placeholder="Label">
+          <div>
+            <input type="submit" value="New token">
+          </div>
+        </div>
+      </footer>
     </form>
-  </div>
-  <table>
+  </section>
+
+  <div class="errors" id="global-errors"></div>
+
+  <table class="compact">
     <tr>
-      <th>Label</th>
+      <th class="expand">Label</th>
       <th>Hash</th>
       <th></th>
     </tr>
     {{range $i, $tok := .Tokens}}
       <tr>
-        <td>{{$tok.Label}}</td>
-        <td>{{$tok.Hash}}</td>
+        <td class="expand">{{$tok.Label}}</td>
+        <td><code>{{$tok.ShortHash}}</code></td>
         <td>
-          <form action="/roomtokens" method="post">
+          <form class="inline htmx-form" hx-post="{{"/roomtokens" | asURL}}" hx-swap="none">
             {{$.CSRFField}}
             <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="hash" value="{{$tok.Hash}}">
-            <input type="submit" value="Delete">
+            <input type="hidden" name="hash" value="{{$tok.FullHash}}">
+            <button type="submit" class="error icon-trash"></button>
           </form>
         </td>
       </tr>

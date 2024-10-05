@@ -1,40 +1,38 @@
 {{define "title"}}Contests{{end}}
 
 {{define "body"}}
-  {{if .All}}
-    <a href="/contests">Show only running</a>
-  {{else}}
-    <a href="/contests?all=true">Show all</a>
-  {{end}}
-  {{if .CanStartContests}}
-    <a href="/contests/new">New contest...</a>
-  {{end}}
-  <table>
+  <section>
+    {{if .RunningOnly}}
+      <a class="button" href="{{"/contests" | asURL}}">Show all</a>
+    {{else}}
+      <a class="button" href="{{"/contests?running=true" | asURL}}">Show running</a>
+    {{end}}
+    {{if .CanStartContests}}
+      <a class="button success icon-plus" href="{{"/contests/new" | asURL}}">New contest</a>
+    {{end}}
+  </section>
+  <table class="compact">
     <tr>
-      <th>Name</th>
+      <th class="expand">Name</th>
       <th>Kind</th>
       <th>Status</th>
       <th>Progress</th>
       <th>Result</th>
-      <th>PGN</th>
+      <th></th>
     </tr>
     {{range $i, $contest := .Contests}}
       <tr>
-        <td>
-          <a href="/contest/{{.ID}}">{{.Name}}</a>
+        <td class="expand">
+          <a href="{{.ID | printf "/contest/%v" | asURL}}">{{.Name}}</a>
         </td>
-        <td>{{.Kind}}</td>
-        <td>{{.Status}}</td>
+        <td>{{.Kind.PrettyString}}</td>
         <td>
-          {{if .Progress | gt 0.0}}
-            N/A
-          {{else}}
-            {{.Progress | printf "%.2f"}}%
-          {{end}}
+          <span class="contest-status-{{.Status}}">{{.Status.PrettyString}}</span>
         </td>
+        <td>{{template "part/progress" .Progress}}</td>
         <td>{{.Result}}</td>
         <td>
-          <a href="/contest/{{.ID}}/pgn" target="_blank">PGN</a>
+          <a class="smaller button" href="{{.ID | printf "/contest/%v/pgn" | asURL}}" target="_blank">PGN</a>
         </td>
       </tr>
     {{end}}

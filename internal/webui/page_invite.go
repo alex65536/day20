@@ -17,18 +17,18 @@ import (
 	"github.com/gorilla/csrf"
 )
 
-type inviteData struct {
-	InviteVal string
-	Errors    []string
-	CSRFField template.HTML
-}
-
 type inviteDataBuilder struct{}
 
 func (inviteDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 	req := bc.Req
 	cfg := bc.Config
 	log := bc.Log
+
+	type data struct {
+		InviteVal string
+		Errors    []string
+		CSRFField template.HTML
+	}
 
 	if bc.UserInfo != nil {
 		return nil, httputil.MakeError(http.StatusBadRequest, "already logged in")
@@ -44,12 +44,15 @@ func (inviteDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) 
 
 	switch req.Method {
 	case http.MethodGet:
-		return &inviteData{
+		return &data{
 			InviteVal: inviteVal,
 			Errors:    nil,
 			CSRFField: csrf.TemplateField(req),
 		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
@@ -92,19 +95,17 @@ func (inviteDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) 
 			return user, nil
 		}()
 		if len(errs) > 0 {
-			return &inviteData{
-				InviteVal: inviteVal,
-				Errors:    errs,
-				CSRFField: csrf.TemplateField(req),
+			return &errorsPartData{
+				Errors: errs,
 			}, nil
 		}
 		bc.ResetSession(makeUserInfo(&user))
-		return nil, httputil.MakeRedirectError(http.StatusSeeOther, "registration successful", "/")
+		return nil, bc.Redirect("/")
 	default:
 		return nil, httputil.MakeError(http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
 func invitePage(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	return newPage(log, cfg, pageOptions{NoShowAuth: true}, templ, inviteDataBuilder{}, "invite")
+	return newPage(log, cfg, pageOptions{}, templ, inviteDataBuilder{}, "invite")
 }

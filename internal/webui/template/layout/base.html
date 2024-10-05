@@ -1,4 +1,3 @@
-{{define "base"}}
 <!DOCTYPE html>
 <html>
   <head>
@@ -7,30 +6,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- 3rd party libs -->
-    <script src="{{"/js/jquery.js" | asStaticURL}}"></script>
     <script src="{{"/js/htmx.js" | asStaticURL}}"></script>
     <script src="{{"/js/htmx-ext-ws.js" | asStaticURL}}"></script>
+    <link rel="stylesheet" type="text/css" href="{{"/css/picnic.css" | asStaticURL}}">
 
     <!-- our libs -->
     <script src="{{"/js/day20.js" | asStaticURL}}"></script>
+    <link rel="stylesheet" type="text/css" href="{{"/css/day20.css" | asStaticURL}}">
 
     {{block "head" .Data}}{{end}}
   </head>
   <body>
-    {{if .WithAuth}}
-      {{if .User}}
-        <div>
-          Hello, <a href="/profile">{{.User.Username}}</a>!
-          <a href="/logout">Log out</a>
+    {{if .WithNav}}
+      <nav>
+        <a href="{{"/" | asURL}}" class="brand">Day20</a>
+        <input id="bmenub" type="checkbox" class="show">
+        <label for="bmenub" class="burger pseudo button icon-menu"></label>
+        <div class="menu">
+          <a href="{{"/" | asURL}}" class="pseudo button">Rooms</a>
+          <a href="{{"/users" | asURL}}" class="pseudo button">Users</a>
+          <a href="{{"/contests" | asURL}}" class="pseudo button">Contests</a>
+          {{if .WithAuth}}
+            {{if .User}}
+              <a href="{{"/profile" | asURL}}" class="pseudo button icon-user">{{.User.Username}}</a>
+              <a href="{{"/logout" | asURL}}" class="error button">Log out</a>
+            {{else}}
+              <a href="{{"/login" | asURL}}" class="button">Log in</a>
+            {{end}}
+          {{end}}
         </div>
-      {{else}}
-        <div>
-          You are not logged in.
-          <a href="/login">Log in</a>
-        </div>
-      {{end}}
+      </nav>
     {{end}}
-    {{block "body" .Data}}{{end}}
+    {{block "body-outer" .Data}}
+      <main>
+        {{block "body" .}}{{end}}
+      </main>
+    {{end}}
   </body>
 </html>
-{{end}}

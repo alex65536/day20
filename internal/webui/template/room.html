@@ -3,30 +3,49 @@
 {{define "head"}}
   <!-- more 3rd-party libs -->
   <link rel="stylesheet" type="text/css" href="{{"/css/chessboard.css" | asStaticURL}}">
+  <script src="{{"/js/jquery.js" | asStaticURL}}"></script>
   <script src="{{"/js/chessboard.js" | asStaticURL}}"></script>
 {{end}}
 
-{{define "body"}}
-  <div id="room-body" hx-ext="ws" ws-connect="{{.ID | printf "/room/%v/ws" | asURL}}">
-    {{template "part/cursor" .Cursor}}
-    <div id="main-board" style="width: 400px"></div>
-    {{template "part/fen" .FEN}}
-    <script>
-      var mainBoard = Chessboard('main-board', {
-        draggable: false,
-        showNotation: true,
-        position: '{{.FEN}}',
-        pieceTheme: '/img/piece/cburnett/{piece}.svg',
-      })
-      htmx.onLoad(function(content) {
-        var elt = content.querySelector('#fen-data')
-        if (elt) {
-          mainBoard.position(elt.textContent)
-        }
-      })
-    </script>
-    {{template "part/player" .White}}
-    {{template "part/player" .Black}}
-    <a href="{{.ID | printf "/room/%v/pgn" | asURL}}">PGN</a>
-  </div>
+{{define "body-outer"}}
+  <main class="wide">
+    <div id="room-body" hx-ext="ws" ws-connect="{{.ID | printf "/room/%v/ws" | asURL}}">
+      {{template "part/cursor" .Cursor}}
+      <div class="room-layout">
+        <section class="room-board">
+          <div id="room-chessboard"></div>
+          <div class="fen-outer">
+            <div>FEN:</div>
+            {{template "part/fen" .FEN}}
+            <div class="button icon-copy" onclick="javascript:eltToClipboard(this.parentElement, '#fen')"></div>
+          </div>
+          <script>
+            var mainBoard = Chessboard('room-chessboard', {
+              draggable: false,
+              showNotation: true,
+              position: '{{.FEN}}',
+              pieceTheme: '/img/piece/cburnett/{piece}.svg',
+            })
+            htmx.onLoad(function(content) {
+              var elt = content.matches('#fen') ? content : content.querySelector('#fen')
+              if (elt) {
+                mainBoard.position(elt.textContent)
+              }
+            })
+            window.addEventListener('load', function() { mainBoard.resize() })
+            window.addEventListener('resize', function() { mainBoard.resize() })
+          </script>
+        </section>
+        <section class="room-white">
+          {{template "part/player" .White}}
+        </section>
+        <section class="room-black">
+          {{template "part/player" .Black}}
+        </section>
+        <section class="room-bttns">
+          {{template "part/room_buttons" .Buttons}}
+        </section>
+      </div>
+    </div>
+  </main>
 {{end}}

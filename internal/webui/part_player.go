@@ -25,7 +25,7 @@ type playerPartData struct {
 	Depth     string
 	Nodes     string
 	NPS       string
-	AJAXAttrs template.HTML
+	AJAXAttrs template.HTMLAttr
 }
 
 func colorText(col chess.Color) string {

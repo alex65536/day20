@@ -1,0 +1,21 @@
+<span>
+  <a
+    href="{{.Username | printf "/user/%v" | asURL}}"
+    {{if .Perms.IsBlocked}}
+      class="user-blocked"
+    {{else if .Perms.IsOwner}}
+      class="user-owner"
+    {{end}}>{{.Username}}
+  </a>
+  {{if .Perms.IsBlocked}}
+    <span class="label nomargin perm-blocked">Blocked</span>
+  {{end}}
+  {{if .Perms.IsOwner}}
+    <span class="label nomargin perm-owner">Owner</span>
+  {{end}}
+  {{range $i, $perm := .Perms.Perms}}
+    {{if $perm.Active}}
+      <span class="label nomargin perm-{{$perm.Kind}}">{{$perm.Kind.PrettyString}}</span>
+    {{end}}
+  {{end}}
+</span>

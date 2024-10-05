@@ -15,5 +15,5 @@ func (e404DataBuilder) Build(context.Context, builderCtx) (any, error) {
 }
 
 func e404Page(log *slog.Logger, cfg *Config, templ *templator) (http.Handler, error) {
-	return newPage(log, cfg, pageOptions{NoUserInfo: true}, templ, e404DataBuilder{}, "")
+	return newPage(log, cfg, pageOptions{NoNav: true, NoUserInfo: true}, templ, e404DataBuilder{}, "")
 }

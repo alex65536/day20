@@ -8,33 +8,12 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/alex65536/day20/internal/userauth"
 	"github.com/alex65536/day20/internal/util/httputil"
 	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/gorilla/csrf"
 )
-
-type userPerm struct {
-	Active bool
-	Field  string
-	Name   string
-}
-
-type userData struct {
-	Username             string
-	PermStr              string
-	CSRFField            template.HTML
-	CanChangePassword    bool
-	ChangePasswordErrors []string
-	CanChangePerms       bool
-	ChangePermsErrors    []string
-	Perms                []userPerm
-	UserBlocked          bool
-	CanInvite            bool
-	CanHostRooms         bool
-}
 
 type userDataBuilder struct{}
 
@@ -43,6 +22,15 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 	ourUser := bc.FullUser
 	cfg := bc.Config
 	log := bc.Log
+
+	type data struct {
+		User              *userPartData
+		CSRFField         template.HTML
+		CanChangePassword bool
+		CanChangePerms    bool
+		CanInvite         bool
+		CanHostRooms      bool
+	}
 
 	targetUsername := req.PathValue("username")
 	targetUser, err := cfg.UserManager.GetUserByUsername(ctx, targetUsername)
@@ -54,53 +42,28 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 		return nil, fmt.Errorf("fetch target user: %w", err)
 	}
 
-	permStrs := []string{}
-	if targetUser.Perms.IsBlocked {
-		permStrs = append(permStrs, "Blocked")
-	} else {
-		if targetUser.Perms.IsOwner {
-			permStrs = append(permStrs, "Owner")
-		}
-		for perm := range userauth.PermMax {
-			if targetUser.Perms.Get(perm) {
-				permStrs = append(permStrs, perm.PrettyString())
-			}
-		}
-	}
-
 	canChangePerms := false
 	if ourUser != nil {
 		err := targetUser.CanChangePerms(ourUser, targetUser.Perms)
 		canChangePerms = err == nil
 	}
 	isOurOwnPage := ourUser != nil && ourUser.ID == targetUser.ID
-	perms := []userPerm{}
-	if canChangePerms {
-		for perm := range userauth.PermMax {
-			perms = append(perms, userPerm{
-				Active: targetUser.Perms.Get(perm),
-				Field:  "perm-" + perm.String(),
-				Name:   perm.PrettyString(),
-			})
-		}
-	}
-
-	data := &userData{
-		Username:          targetUser.Username,
-		PermStr:           strings.Join(permStrs, ", "),
-		CSRFField:         csrf.TemplateField(req),
-		CanChangePassword: isOurOwnPage && !ourUser.Perms.IsBlocked,
-		CanChangePerms:    canChangePerms,
-		Perms:             perms,
-		UserBlocked:       targetUser.Perms.IsBlocked,
-		CanInvite:         isOurOwnPage && ourUser.Perms.Get(userauth.PermInvite),
-		CanHostRooms:      isOurOwnPage && ourUser.Perms.Get(userauth.PermHostRooms),
-	}
+	canChangePassword := isOurOwnPage && !ourUser.Perms.IsBlocked
 
 	switch req.Method {
 	case http.MethodGet:
-		return data, nil
+		return &data{
+			User:              buildUserPartData(targetUser),
+			CSRFField:         csrf.TemplateField(req),
+			CanChangePassword: canChangePassword,
+			CanChangePerms:    canChangePerms,
+			CanInvite:         isOurOwnPage && ourUser.Perms.Get(userauth.PermInvite),
+			CanHostRooms:      isOurOwnPage && ourUser.Perms.Get(userauth.PermHostRooms),
+		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
@@ -113,7 +76,7 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 			oldPassword := req.FormValue("old-password")
 			newPassword, newPassword2 := req.FormValue("new-password"), req.FormValue("new-password2")
 			serr := func() string {
-				if !data.CanChangePassword {
+				if !canChangePassword {
 					return "operation not permitted"
 				}
 				if !cfg.UserManager.VerifyPassword(ourUser, []byte(oldPassword)) {
@@ -137,10 +100,11 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				return ""
 			}()
 			if serr != "" {
-				data.ChangePasswordErrors = []string{serr}
-				return data, nil
+				return &errorsPartData{
+					Errors: []string{serr},
+				}, nil
 			}
-			return nil, httputil.MakeRedirectError(http.StatusSeeOther, "password changed", "/user/"+targetUsername)
+			return nil, bc.Redirect("/user/" + targetUsername)
 		case "perms":
 			serr := func() string {
 				var perms userauth.Perms
@@ -162,10 +126,11 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				return ""
 			}()
 			if serr != "" {
-				data.ChangePermsErrors = []string{serr}
-				return data, nil
+				return &errorsPartData{
+					Errors: []string{serr},
+				}, nil
 			}
-			return nil, httputil.MakeRedirectError(http.StatusSeeOther, "perms changed", "/user/"+targetUsername)
+			return nil, bc.Redirect("/user/" + targetUsername)
 		default:
 			return nil, httputil.MakeError(http.StatusBadRequest, "unknown action")
 		}

@@ -1,60 +1,100 @@
-{{define "title"}}New Contest{{end}}
+{{define "title"}}New contest…{{end}}
 
 {{define "body"}}
-  <div>Create new contest</div>
-  <form action="/contests/new" method="post">
-    {{range $i, $err := .Errors}}
-      <div>
-        Error: {{$err}}
-      </div>
-    {{end}}
-    {{.CSRFField}}
-    <label for="name">Name</label>
-    <input type="text" name="name" id="name">
-    <div>
-      <div>Time control:</div>
-      <div>
-        <input type="radio" name="time" id="time-fixed" value="fixed">
-        <label for="time-fixed">Fixed per move</label>
-        <input type="text" name="time-fixed-value" id="time-fixed-value">
-        <span>ms</span>
-      </div>
-      <div>
-        <input type="radio" name="time" id="time-control" value="control" checked>
-        <label for="time-control">Control</label>
-        <input type="text" name="time-control-value" id="time-control-value">
-      </div>
-    </div>
-    <div>
-      <div>Openings:</div>
-      <div>
-        <select name="openings" id="openings">
-          <option value="gb20">Built-in (GBSelect2020 by Graham Banks)</option>
-          <option value="gb14">Built-in (Graham2024-1F by Graham Banks)</option>
-          <option value="fen">FEN list</option>
-          <option value="pgn-line">PGN line list</option>
-        </select>
-      </div>
-      <textarea name="openings-value" id="openings-value" cols="60" rows="10"></textarea>
-    </div>
-    <label for="score-threshold">Score threshold</label>
-    <input type="text" name="score-threshold" id="score-threshold">
-    <!-- TODO: time margin -->
-    <div>Kind: Match</div>
-    <div>
-      <label for="first">First player</label>
-      <input type="text" name="first" id="first">
-    </div>
-    <div>
-      <label for="second">Second player</label>
-      <input type="text" name="second" id="second">
-    </div>
-    <div>
-      <label for="game">Games</label>
-      <input type="text" name="games" id="games">
-    </div>
-    <div>
-      <input type="submit" value="Create">
-    </div>
-  </form>
+  <div class="card">
+    <header>Create new contest</header>
+    <form class="htmx-form" hx-post="{{"/contests/new" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+      {{.CSRFField}}
+
+      <section>
+        <label>
+          Name
+          <input type="text" name="name">
+        </label>
+      </section>
+
+      <section>
+        <h4>Time control</h4>
+        <section>
+          <label>
+            <input type="radio" name="time" value="fixed" id="time-fixed-radio">
+            <span class="checkable">Fixed per move</span>
+          </label>
+          <div class="right-tagged">
+            <input type="text" name="time-fixed-value" id="time-fixed-value">
+            <span>ms</span>
+          </div>
+        </section>
+        <section>
+          <label>
+            <input type="radio" name="time" value="control" id="time-control-radio" checked>
+            <span class="checkable">Control</span>
+          </label>
+          <input type="text" name="time-control-value" id="time-control-value">
+        </section>
+        <script>
+          formToggle([
+            ['time-fixed-radio', 'time-fixed-value'],
+            ['time-control-radio', 'time-control-value'],
+          ])
+        </script>
+      </section>
+
+      <section>
+        <h4>Openings</h4>
+        <section>
+          <select name="openings" id="openings">
+            <option value="gb20">Built-in (GBSelect2020 by Graham Banks)</option>
+            <option value="gb14">Built-in (Graham2024-1F by Graham Banks)</option>
+            <option value="fen">FEN list</option>
+            <option value="pgn-line">PGN line list</option>
+          </select>
+          <textarea name="openings-value" id="openings-value" rows="10"></textarea>
+          <script>
+            formToggle([
+              ['openings', 'openings-value'],
+            ], {
+              isEnabled: function(select) {
+                return select.value == 'fen' || select.value == 'pgn-line'
+              },
+              hide: true,
+            })
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <label>
+          Score threshold (0 for unlimited)
+          <div class="right-tagged">
+            <input type="number" name="score-threshold" min="0" value="0">
+            <span>cp</span>
+          </div>
+        </label>
+      </section>
+
+      <section>
+        <p>
+          Kind: Match
+        </p>
+        <label>
+          First player
+          <input type="text" name="first">
+        </label>
+        <label>
+          Second player
+          <input type="text" name="second">
+        </label>
+        <label>
+          Games
+          <input type="number" name="games" min="1" value="100">
+        </label>
+      </section>
+
+      <footer>
+        <div class="errors"></div>
+        <input type="submit" class="button" value="Create">
+      </footer>
+    </form>
+  </div>
 {{end}}

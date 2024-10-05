@@ -1,32 +1,48 @@
 <div id="player-{{.Color}}" {{- .AJAXAttrs -}}>
-  <div>
-    <span>{{.ColorText}} Player: {{.Name}}</span>
-
-    {{if .Active}}
-      <span>Thinking</span>
-    {{else}}
-      <span>Idle</span>
+  <section class="player-header">
+    {{if .Clock}}
+      <section>
+        <div
+          id="{{.Color}}-chess-clock"
+          class="label {{.Color}}-chess-clock"
+          data-clock-msecs="{{.Clock.Msecs}}"
+          data-clock-active="{{.Clock.Active}}"
+          hx-on:htmx:before-swap="{{.ClockVar}}.stop()"
+        ></div>
+        <script>
+          var {{.ClockVar}} = newClock('{{.Color}}-chess-clock')
+        </script>
+      </section>
     {{end}}
-  </div>
-
-  {{if .Clock}}
-    <div
-      id="{{.Color}}-clock"
-      data-clock-msecs="{{.Clock.Msecs}}"
-      data-clock-active="{{.Clock.Active}}"
-      hx-on:htmx:before-swap="{{.ClockVar}}.stop()"
-    ></div>
-    <script>
-      var {{.ClockVar}} = newClock('{{.Color}}-clock')
-    </script>
-  {{end}}
-
-  <div>PV: {{.PV}}</div>
-
-  <div>
-    <span>Score: {{.Score}}</span>
-    <span>Depth: {{.Depth}}</span>
-    <span>Nodes: {{.Nodes}}</span>
-    <span>NPS: {{.NPS}}</span>
-  </div>
+    <section>
+      <div>
+        <span class="player-color">{{.ColorText}}</span>
+        {{if .Active}}
+          <span class="icon-record icon-cl-green"></span>
+        {{else}}
+          <span class="icon-record-outline icon-cl-gray"></span>
+        {{end}}
+      </div>
+      <div>{{.Name}}</div>
+    </section>
+  </section>
+  <section class="pv">{{.PV}}</section>
+  <section class="flex four player-stats">
+    <div>
+      <div class="key">Score</div>
+      <div>{{.Score}}</div>
+    </div>
+    <div>
+      <div class="key">Depth</div>
+      <div>{{.Depth}}</div>
+    </div>
+    <div>
+      <div class="key">Nodes</div>
+      <div>{{.Nodes}}</div>
+    </div>
+    <div>
+      <div class="key">NPS</div>
+      <div>{{.NPS}}</div>
+    </div>
+  </section>
 </div>

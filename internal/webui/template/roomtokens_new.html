@@ -1,36 +1,19 @@
-{{define "title"}}New Room Token{{end}}
+{{define "title"}}Your room token{{end}}
 
 {{define "body"}}
-<div>Your room token:</div>
-<div>
-  <code id="token">{{.Token}}</code>
-  <a id="copy-link" href="javascript:copyToken()">Copy</a>
-  <a id="download-link" href="javascript:downloadToken()">Download</a>
-</div>
-<script>
-  if (!navigator.clipboard) {
-    console.warn('copying to clipboard is not supported')
-    var elt = document.getElementById('copy-link')
-    elt.parentNode.removeChild(elt)
-  }
+  <section>
+    <a class="button icon-arrow-left" href="{{"/roomtokens" | asURL}}">Back</a>
+  </section>
 
-  function token() { return document.getElementById('token').textContent }
+  <section>
+    <p>Here, you can find your new room token. Keep it secret!</p>
 
-  function copyToken() {
-    navigator.clipboard.writeText(token()).then(function() {}, function(err) {
-      console.error('could not copy: ', err)
-    })
-  }
+    <p>For security reasons, you will not be able to view this token anymore after you close this page.</p>
 
-  function downloadToken() {
-    var link = document.createElement('a')
-    var blob = new Blob([token()], {type: 'text/plain'})
-    link.setAttribute('href', URL.createObjectURL(blob))
-    link.setAttribute('download', 'day20_token')
-    link.click()
-  }
-</script>
-<div>
-  <a href="/roomtokens">Back</a>
-</div>
+    <p>
+      <code class="token bigger">{{.Token}}</code>
+      <span class="button icon-copy" onclick="eltToClipboard(this.parentElement, '.token')"></span>
+      <span class="button icon-download" onclick="eltDownload(this.parentElement, '.token', 'day20_token')"></span>
+    </p>
+  </section>
 {{end}}

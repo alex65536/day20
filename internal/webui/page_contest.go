@@ -7,40 +7,18 @@ import (
 	"html/template"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
+	"time"
 
 	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/stat"
 	"github.com/alex65536/day20/internal/userauth"
 	"github.com/alex65536/day20/internal/util/httputil"
 	"github.com/alex65536/day20/internal/util/slogx"
+	"github.com/alex65536/go-chess/clock"
 	"github.com/gorilla/csrf"
 )
-
-type contestData struct {
-	ID               string
-	Name             string
-	Kind             string
-	Status           string
-	Reason           string
-	Progress         float64
-	FirstWin         int
-	Draw             int
-	SecondWin        int
-	Score            string
-	Winner           string
-	WinnerConfidence float64
-	LOS              float64
-	EloDiff          stat.EloDiff
-	CanCancel        bool
-	CSRFField        template.HTML
-	FixedTime        string
-	TimeControl      string
-	ScoreThreshold   int32
-	First            string
-	Second           string
-	Total            int
-}
 
 type contestDataBuilder struct{}
 
@@ -48,6 +26,35 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 	cfg := bc.Config
 	req := bc.Req
 	log := bc.Log
+
+	type builtData struct {
+		ID   string
+		Name string
+
+		CanCancel bool
+		CSRFField template.HTML
+
+		Kind           scheduler.ContestKind
+		First          string
+		Second         string
+		Status         scheduler.ContestStatus
+		Progress       *progressPartData
+		Played         int64
+		Total          int64
+		FixedTime      *time.Duration
+		TimeControl    *clock.Control
+		ScoreThreshold int32
+		OpeningBook    scheduler.OpeningBook
+
+		FirstWin         int64
+		Draw             int64
+		SecondWin        int64
+		Score            string
+		LOS              float64
+		Winner           stat.Winner
+		WinnerConfidence string
+		EloDiff          stat.EloDiff
+	}
 
 	info, data, err := cfg.Scheduler.GetContest(ctx, req.PathValue("contestID"))
 	if err != nil {
@@ -58,55 +65,47 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 
 	switch req.Method {
 	case http.MethodGet:
-		switch info.Kind {
-		case scheduler.ContestMatch:
-			var progress float64
-			if info.Match.Games == 0 {
-				progress = -1.0
-			} else {
-				progress = float64(data.Match.Played()) / float64(info.Match.Games) * 100
-			}
-			status := data.Match.Status()
-			confidence, winner := status.Winner(0.9, 0.95, 0.97, 0.99)
-			fixedTime, timeControl := "", ""
-			if info.FixedTime != nil {
-				fixedTime = info.FixedTime.String()
-			}
-			if info.TimeControl != nil {
-				timeControl = info.TimeControl.String()
-			}
-			return &contestData{
-				ID:        info.ID,
-				Name:      info.Name,
-				Kind:      info.Kind.PrettyString(),
-				Status:    data.Status.Kind.PrettyString(),
-				Reason:    data.Status.Reason,
-				Progress:  progress,
-				FirstWin:  int(data.Match.FirstWin),
-				Draw:      int(data.Match.Draw),
-				SecondWin: int(data.Match.SecondWin),
-				Score:     status.ScoreString(),
-				Winner: (map[stat.Winner]string{
-					stat.WinnerFirst:   "First",
-					stat.WinnerSecond:  "Second",
-					stat.WinnerUnclear: "Unclear",
-				})[winner],
-				WinnerConfidence: confidence,
-				LOS:              status.LOS(),
-				EloDiff:          status.EloDiff(0.95),
-				CanCancel:        canCancel && !data.Status.Kind.IsFinished(),
-				CSRFField:        csrf.TemplateField(req),
-				FixedTime:        fixedTime,
-				TimeControl:      timeControl,
-				ScoreThreshold:   info.ScoreThreshold,
-				First:            info.Players[0].Name,
-				Second:           info.Players[1].Name,
-				Total:            int(info.Match.Games),
-			}, nil
-		default:
+		if info.Kind != scheduler.ContestMatch {
 			panic("unknown contest kind")
 		}
+		ms := data.Match.Status()
+		confidence, winner := ms.Winner(0.9, 0.95, 0.97, 0.99)
+		confidenceStr := ""
+		if confidence != 0.0 {
+			confidenceStr = fmt.Sprintf("%02v", math.Round(confidence*100))
+		}
+		return &builtData{
+			ID:   info.ID,
+			Name: info.Name,
+
+			CanCancel: canCancel && !data.Status.Kind.IsFinished(),
+			CSRFField: csrf.TemplateField(req),
+
+			Kind:           info.Kind,
+			First:          info.Players[0].Name,
+			Second:         info.Players[1].Name,
+			Status:         data.Status,
+			Progress:       buildProgressPartData(data.Match.Played(), info.Match.Games),
+			Played:         data.Match.Played(),
+			Total:          info.Match.Games,
+			FixedTime:      info.FixedTime,
+			TimeControl:    info.TimeControl,
+			ScoreThreshold: info.ScoreThreshold,
+			OpeningBook:    info.OpeningBook,
+
+			FirstWin:         data.Match.FirstWin,
+			Draw:             data.Match.Draw,
+			SecondWin:        data.Match.SecondWin,
+			Score:            ms.ScoreString(),
+			LOS:              ms.LOS(),
+			Winner:           winner,
+			WinnerConfidence: confidenceStr,
+			EloDiff:          ms.EloDiff(0.95),
+		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
@@ -117,7 +116,7 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 				return nil, httputil.MakeError(http.StatusForbidden, "operation not permitted")
 			}
 			cfg.Scheduler.AbortContest(info.ID, "canceled by user "+bc.FullUser.Username)
-			return nil, httputil.MakeRedirectError(http.StatusSeeOther, "contest canceled", "/contest/"+info.ID)
+			return nil, bc.Redirect("/contest/" + info.ID)
 		default:
 			return nil, httputil.MakeError(http.StatusBadRequest, "unknown action")
 		}

@@ -42,7 +42,7 @@ type dataBuilder interface {
 
 type pageOptions struct {
 	NoUserInfo     bool
-	NoShowAuth     bool
+	NoNav          bool
 	FullUser       bool
 	GetUserOptions maybe.Maybe[userauth.GetUserOptions]
 }
@@ -60,6 +60,7 @@ type page struct {
 type pageData struct {
 	Data     any
 	User     *userInfo
+	WithNav  bool
 	WithAuth bool
 }
 
@@ -70,6 +71,14 @@ type builderCtx struct {
 	FullUser *userauth.User
 	Req      *http.Request
 	writer   http.ResponseWriter
+}
+
+func (bc *builderCtx) IsHTMX() bool {
+	return bc.Req.Header.Get("HX-Request") == "true"
+}
+
+func (bc *builderCtx) Redirect(target string) error {
+	return httputil.MakeRedirectError(http.StatusSeeOther, "redirect", bc.Config.prefix+target)
 }
 
 func (bc *builderCtx) UpgradeSession(newUser *userInfo) {
@@ -105,6 +114,35 @@ func (bc *builderCtx) ResetSession(newUser *userInfo) {
 	bc.FullUser = nil
 }
 
+func (p *page) renderHTMXError(log *slog.Logger, w http.ResponseWriter, httpErr *httputil.Error) {
+	if 300 <= httpErr.Code() && httpErr.Code() <= 399 {
+		log.Info("send htmx redirect", slog.String("msg", httpErr.Message()))
+		w.Header().Add("HX-Redirect", httpErr.RedirLocation())
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	log.Info("send htmx status error",
+		slog.Int("code", httpErr.Code()),
+		slog.String("msg", httpErr.Message()),
+	)
+	var b bytes.Buffer
+	if err := p.errTmpl.ExecuteTemplate(&b, "part/errors", errorsPartData{
+		Errors: []string{httpErr.Message()},
+	}); err != nil {
+		log.Error("error rendering page", slogx.Err(err))
+		writeHTTPErr(log, w, fmt.Errorf("render page"))
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	httpErr.ApplyHeaders(w)
+	w.WriteHeader(httpErr.Code())
+	if _, err := w.Write(b.Bytes()); err != nil {
+		log.Error("error writing page data", slogx.Err(err))
+		return
+	}
+}
+
 func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *httputil.Error) {
 	if 300 <= httpErr.Code() && httpErr.Code() <= 399 {
 		log.Info("send http redirect",
@@ -124,9 +162,11 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 	if err := p.errTmpl.Execute(&b, pageData{
 		Data: struct {
 			Code    int
+			CodeMsg string
 			Message string
 		}{
 			Code:    httpErr.Code(),
+			CodeMsg: http.StatusText(httpErr.Code()),
 			Message: httpErr.Message(),
 		},
 	}); err != nil {
@@ -134,7 +174,7 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 		writeHTTPErr(log, w, fmt.Errorf("render page"))
 		return
 	}
-	w.Header().Set("Context-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html")
 	httpErr.ApplyHeaders(w)
 	w.WriteHeader(httpErr.Code())
 	if _, err := w.Write(b.Bytes()); err != nil {
@@ -167,7 +207,7 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if session.IsNew {
 			p.cfg.opts.Session.SetupSession(session.Options)
-			if err := p.cfg.sessionStore.Save(req, w, session); err != nil {
+			if err := session.Save(req, w); err != nil {
 				log.Error("could not save session", slogx.Err(err))
 			}
 		}
@@ -211,7 +251,11 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	data, err := p.b.Build(ctx, bc)
 	if err != nil {
 		if httpErr := (*httputil.Error)(nil); errors.As(err, &httpErr) {
-			p.renderError(log, w, httpErr)
+			if bc.IsHTMX() {
+				p.renderHTMXError(log, w, httpErr)
+			} else {
+				p.renderError(log, w, httpErr)
+			}
 			return
 		}
 		log.Error("error building page data", slogx.Err(err))
@@ -220,17 +264,23 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var b bytes.Buffer
-	if err := p.tmpl.Execute(&b, pageData{
-		Data:     data,
-		User:     bc.UserInfo,
-		WithAuth: !p.pageOpts.NoUserInfo && !p.pageOpts.NoShowAuth,
-	}); err != nil {
+	if fr, ok := data.(interface{ Fragment() string }); ok {
+		err = p.tmpl.ExecuteTemplate(&b, fr.Fragment(), data)
+	} else {
+		err = p.tmpl.Execute(&b, pageData{
+			Data:     data,
+			User:     bc.UserInfo,
+			WithNav:  !p.pageOpts.NoNav,
+			WithAuth: !p.pageOpts.NoNav && !p.pageOpts.NoUserInfo,
+		})
+	}
+	if err != nil {
 		log.Error("error rendering page", slogx.Err(err))
 		writeHTTPErr(log, w, fmt.Errorf("render page"))
 		return
 	}
 
-	w.Header().Set("Context-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(b.Bytes()); err != nil {
 		log.Error("error writing page data", slogx.Err(err))

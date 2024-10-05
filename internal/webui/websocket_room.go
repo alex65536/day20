@@ -51,7 +51,7 @@ func (s *roomWebSocketSession) recvCursor() (delta.RoomCursor, error) {
 func (s *roomWebSocketSession) shutdownWithPageRefresh() {
 	var b bytes.Buffer
 	cursorData := buildCursorPartData(s.log, maybe.None[delta.RoomCursor](), true)
-	cursorData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+	cursorData.AJAXAttrs = template.HTMLAttr(`hx-swap-oob="outerHTML"`)
 	if err := s.tmpl.ExecuteTemplate(&b, "part/cursor", cursorData); err != nil {
 		s.log.Error("could not render cursor", slogx.Err(err))
 		s.s.Shutdown()
@@ -74,7 +74,7 @@ func (s *roomWebSocketSession) renderAndSend(fragment string, cursor delta.RoomC
 	}
 	_ = b.WriteByte('\n')
 	cursorData := buildCursorPartData(s.log, maybe.Some(cursor), false)
-	cursorData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+	cursorData.AJAXAttrs = template.HTMLAttr(`hx-swap-oob="outerHTML"`)
 	if err := s.tmpl.ExecuteTemplate(&b, "part/cursor", cursorData); err != nil {
 		s.log.Error("could not render cursor", slogx.Err(err))
 		s.s.Shutdown()
@@ -131,6 +131,17 @@ func (s *roomWebSocketSession) Do() {
 		oldClientCursor := clientCursor
 		clientCursor = state.Cursor()
 
+		if oldClientCursor.JobID != clientCursor.JobID {
+			roomButtonsData := &roomButtonsPartData{
+				RoomID:    roomID,
+				Active:    clientCursor.JobID != "",
+				AJAXAttrs: template.HTMLAttr(`hx-swap-oob="outerHTML"`),
+			}
+			if !s.renderAndSend("part/room_buttons", clientCursor, roomButtonsData) {
+				return
+			}
+		}
+
 		if oldClientCursor.JobID != clientCursor.JobID ||
 			oldClientCursor.State.Position != clientCursor.State.Position {
 			var board *chess.Board
@@ -138,7 +149,7 @@ func (s *roomWebSocketSession) Do() {
 				board = state.State.Position.Board
 			}
 			fenData := buildFENPartData(board)
-			fenData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+			fenData.AJAXAttrs = template.HTMLAttr(`hx-swap-oob="outerHTML"`)
 			if !s.renderAndSend("part/fen", clientCursor, fenData) {
 				return
 			}
@@ -151,7 +162,7 @@ func (s *roomWebSocketSession) Do() {
 				continue
 			}
 			playerData := buildPlayerPartData(col, state.State)
-			playerData.AJAXAttrs = template.HTML(`hx-swap-oob="outerHTML"`)
+			playerData.AJAXAttrs = template.HTMLAttr(`hx-swap-oob="outerHTML"`)
 			if !s.renderAndSend("part/player", clientCursor, playerData) {
 				return
 			}

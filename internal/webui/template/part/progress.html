@@ -1,0 +1,5 @@
+{{if .Has}}
+  <span style="color: {{.Value | mixColors "#ff4136" "#2ecc40" }};">{{.Percentage | printf "%.2f"}}%</span>
+{{else}}
+  <span style="color: gray;">N/A</span>
+{{end}}

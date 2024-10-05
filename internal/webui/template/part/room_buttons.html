@@ -1,0 +1,3 @@
+<div {{.AJAXAttrs}} id="room-buttons">
+  <a class="button" {{if .Active}}href="{{.RoomID | printf "/room/%v/pgn" | asURL}}" target="_blank"{{else}}disabled{{end}}>PGN</a>
+</div>

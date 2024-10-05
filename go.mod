@@ -9,6 +9,7 @@ require (
 	github.com/gorilla/csrf v1.7.2
 	github.com/gorilla/sessions v1.3.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.8.1

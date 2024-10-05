@@ -1,7 +1,15 @@
 {{define "title"}}Error {{.Code}}{{end}}
 
 {{define "body"}}
-<h1>{{.Code}}</h1>
+  <h1>{{.Code}} {{.CodeMsg}}</h1>
 
-<div>Details: {{.Message}}</div>
+  <section>
+    Error: {{.Message}}
+  </section>
+
+  <br>
+
+  <section>
+    <a class="button" href="{{"/" | asURL}}">Home</a>
+  </section>
 {{end}}

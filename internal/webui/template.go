@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"math"
+	"strconv"
 	"strings"
+
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 type templator struct {
@@ -30,6 +34,26 @@ func parseCommonTemplate(cfg *Config) (*template.Template, error) {
 		},
 		"asStaticURL": func(s string) string {
 			return cfg.prefix + s + "?" + cfg.opts.ServerID
+		},
+		"mixColors": func(ha, hb string, ratio float64) (string, error) {
+			a, err := colorful.Hex(ha)
+			if err != nil {
+				return "", fmt.Errorf("parse first: %w", err)
+			}
+			b, err := colorful.Hex(hb)
+			if err != nil {
+				return "", fmt.Errorf("parse second: %w", err)
+			}
+			return a.BlendHcl(b, ratio).Clamped().Hex(), nil
+		},
+		"fmtFloatWithInf": func(prec int, f float64) string {
+			if math.IsInf(f, +1) {
+				return "+∞"
+			}
+			if math.IsInf(f, -1) {
+				return "-∞"
+			}
+			return strconv.FormatFloat(f, 'f', prec, 64)
 		},
 	})
 	if err := parseTemplate(t, "template/layout/base.html"); err != nil {

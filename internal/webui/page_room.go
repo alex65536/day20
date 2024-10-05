@@ -24,12 +24,13 @@ func (roomDataBuilder) Build(_ context.Context, bc builderCtx) (any, error) {
 	log := bc.Log
 
 	type data struct {
-		ID     string
-		Name   string
-		Cursor *cursorPartData
-		FEN    *fenPartData
-		White  *playerPartData
-		Black  *playerPartData
+		ID      string
+		Name    string
+		Cursor  *cursorPartData
+		FEN     *fenPartData
+		White   *playerPartData
+		Black   *playerPartData
+		Buttons *roomButtonsPartData
 	}
 
 	roomID := bc.Req.PathValue("roomID")
@@ -63,6 +64,10 @@ func (roomDataBuilder) Build(_ context.Context, bc builderCtx) (any, error) {
 		FEN:    buildFENPartData(board),
 		White:  buildPlayerPartData(chess.ColorWhite, state.State),
 		Black:  buildPlayerPartData(chess.ColorBlack, state.State),
+		Buttons: &roomButtonsPartData{
+			RoomID: roomID,
+			Active: state.JobID != "",
+		},
 	}, nil
 }
 

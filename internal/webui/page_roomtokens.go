@@ -3,6 +3,8 @@ package webui
 import (
 	"cmp"
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -17,23 +19,24 @@ import (
 	"github.com/gorilla/csrf"
 )
 
-type roomtokensDataItem struct {
-	CreatedAt timeutil.UTCTime
-	Hash      string
-	Label     string
-}
-
-type roomtokensData struct {
-	CSRFField template.HTML
-	Tokens    []roomtokensDataItem
-}
-
 type roomtokensDataBuilder struct{}
 
 func (roomtokensDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 	req := bc.Req
 	cfg := bc.Config
 	log := bc.Log
+
+	type item struct {
+		CreatedAt timeutil.UTCTime
+		FullHash  string
+		ShortHash string
+		Label     string
+	}
+
+	type data struct {
+		CSRFField template.HTML
+		Tokens    []item
+	}
 
 	if bc.FullUser == nil {
 		return nil, httputil.MakeError(http.StatusForbidden, "not logged in")
@@ -42,30 +45,36 @@ func (roomtokensDataBuilder) Build(ctx context.Context, bc builderCtx) (any, err
 		return nil, httputil.MakeError(http.StatusForbidden, "room tokens not allowed")
 	}
 
-	var tokens []roomtokensDataItem
-	for _, t := range bc.FullUser.RoomTokens {
-		tokens = append(tokens, roomtokensDataItem{
-			CreatedAt: t.CreatedAt,
-			Hash:      t.Hash,
-			Label:     t.Label,
-		})
-	}
-	slices.SortFunc(tokens, func(a, b roomtokensDataItem) int {
-		return cmp.Or(
-			b.CreatedAt.Compare(a.CreatedAt),
-			cmp.Compare(a.Hash, b.Hash),
-		)
-	})
-
-	data := &roomtokensData{
-		CSRFField: csrf.TemplateField(req),
-		Tokens:    tokens,
-	}
-
 	switch req.Method {
 	case http.MethodGet:
-		return data, nil
+		var tokens []item
+		for _, t := range bc.FullUser.RoomTokens {
+			hash := "<invalid>"
+			rawHash, err := base64.RawURLEncoding.DecodeString(t.Hash)
+			if err == nil && len(rawHash) >= 8 {
+				hash = hex.EncodeToString(rawHash[len(rawHash)-8:])
+			}
+			tokens = append(tokens, item{
+				CreatedAt: t.CreatedAt,
+				FullHash:  t.Hash,
+				ShortHash: hash,
+				Label:     t.Label,
+			})
+		}
+		slices.SortFunc(tokens, func(a, b item) int {
+			return cmp.Or(
+				b.CreatedAt.Compare(a.CreatedAt),
+				cmp.Compare(a.FullHash, b.FullHash),
+			)
+		})
+		return &data{
+			CSRFField: csrf.TemplateField(req),
+			Tokens:    tokens,
+		}, nil
 	case http.MethodPost:
+		if !bc.IsHTMX() {
+			return nil, httputil.MakeError(http.StatusBadRequest, "must use htmx request")
+		}
 		err := req.ParseForm()
 		if err != nil {
 			return nil, httputil.MakeError(http.StatusBadRequest, "bad form data")
@@ -76,7 +85,7 @@ func (roomtokensDataBuilder) Build(ctx context.Context, bc builderCtx) (any, err
 				log.Error("could not delete room token", slogx.Err(err))
 				return nil, fmt.Errorf("delete room token: %w", err)
 			}
-			return nil, httputil.MakeRedirectError(http.StatusSeeOther, "room token deleted", "/roomtokens")
+			return nil, bc.Redirect("/roomtokens")
 		default:
 			return nil, httputil.MakeError(http.StatusBadRequest, "unknown action")
 		}
