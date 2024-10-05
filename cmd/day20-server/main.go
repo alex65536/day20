@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +16,6 @@ import (
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
-	"github.com/alex65536/day20/internal/util/slogx"
 	"github.com/alex65536/day20/internal/version"
 	"github.com/alex65536/day20/internal/webui"
 )
@@ -99,30 +97,12 @@ func main() {
 			Scheduler:           scheduler,
 		}, opts.WebUI)
 
-		servFin := make(chan struct{})
-		servCtx, servCancel := context.WithCancel(ctx)
-		server := &http.Server{
-			Addr:        opts.Addr,
-			Handler:     mux,
-			BaseContext: func(net.Listener) context.Context { return servCtx },
+		servers, err := newServers(ctx, log, &opts, mux)
+		if err != nil {
+			return fmt.Errorf("create servers: %w", err)
 		}
-		go func() {
-			defer close(servFin)
-			log.Info("starting http server")
-			if err := server.ListenAndServe(); err != nil {
-				select {
-				case <-servCtx.Done():
-				default:
-					log.Warn("listen http server failed", slogx.Err(err))
-				}
-			}
-		}()
-		defer func() {
-			log.Info("stopping server")
-			servCancel()
-			_ = server.Shutdown(servCtx)
-			<-servFin
-		}()
+		servers.Go()
+		defer servers.Shutdown()
 
 		<-ctx.Done()
 		return nil

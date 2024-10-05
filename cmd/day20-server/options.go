@@ -16,8 +16,18 @@ import (
 	"github.com/alex65536/day20/internal/webui"
 )
 
+type HTTPSOptions struct {
+	Port                 uint16   `toml:"port"`
+	ExposeInsecure       bool     `toml:"expose-insecure"`
+	AllowedSecureDomains []string `toml:"allowed-secure-domains"`
+	CachePath            string   `toml:"cache-path"`
+}
+
+func (o *HTTPSOptions) FillDefaults() {}
+
 type Options struct {
 	Addr         string                       `toml:"addr"`
+	Port         uint16                       `toml:"port"`
 	DB           database.Options             `toml:"db"`
 	WebUI        webui.Options                `toml:"webui"`
 	RoomKeeper   roomkeeper.Options           `toml:"roomkeeper"`
@@ -25,11 +35,46 @@ type Options struct {
 	Scheduler    scheduler.Options            `toml:"scheduler"`
 	TokenChecker userauth.TokenCheckerOptions `toml:"token-checker"`
 	SecretsPath  string                       `toml:"secrets-path"`
+	HTTPS        *HTTPSOptions                `toml:"https"`
+}
+
+func (o *Options) urlRoot() string {
+	schema, addr, port := "http", o.Addr, o.Port
+	if o.HTTPS != nil {
+		schema = "https"
+		port = o.HTTPS.Port
+	}
+	if port != 0 {
+		return fmt.Sprintf("%v://%v:%v", schema, addr, port)
+	}
+	return fmt.Sprintf("%v://%v", schema, addr)
+}
+
+func (o *Options) SecureAddrWithPort() string {
+	if o.HTTPS == nil {
+		panic("no https")
+	}
+	port := o.HTTPS.Port
+	if port == 0 {
+		port = 443
+	}
+	return fmt.Sprintf("%v:%v", o.Addr, port)
+}
+
+func (o *Options) AddrWithPort() string {
+	port := o.Port
+	if port == 0 {
+		port = 80
+	}
+	return fmt.Sprintf("%v:%v", o.Addr, port)
 }
 
 func (o *Options) FillDefaults() {
 	if o.Addr == "" {
-		o.Addr = "localhost:8080"
+		o.Addr = "localhost"
+		if o.Port == 0 {
+			o.Port = 8080
+		}
 	}
 	o.DB.FillDefaults()
 	o.WebUI.FillDefaults()
@@ -37,9 +82,12 @@ func (o *Options) FillDefaults() {
 	o.Users.FillDefaults()
 	o.Scheduler.FillDefaults()
 	if o.Users.LinkPrefix == "" {
-		o.Users.LinkPrefix = fmt.Sprintf("http://%v/invite/", o.Addr)
+		o.Users.LinkPrefix = o.urlRoot() + "/invite/"
 	}
 	o.TokenChecker.FillDefaults()
+	if o.HTTPS != nil {
+		o.HTTPS.FillDefaults()
+	}
 }
 
 func (o *Options) MixSecretsFromFile() error {
