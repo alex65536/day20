@@ -180,6 +180,8 @@ Battlefield is a tool to run matches between chess engines.
 		}
 		defer second.Close()
 
+		cmd.SilenceUsage = true
+
 		display := newDisplay(stdout, stderr, o.Games, aQuiet)
 		c := field.Config{
 			Writer: field.WriterConfig{
@@ -201,6 +203,8 @@ Battlefield is a tool to run matches between chess engines.
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				fmt.Fprintf(os.Stderr, "%vfatal error%v: %v", style.SE(31, 1), style.SE(), err)
+				cmd.SilenceErrors = true
+				return err
 			}
 		}
 
