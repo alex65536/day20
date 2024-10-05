@@ -15,6 +15,32 @@ const (
 	WinnerFirst   Winner = +1
 )
 
+func (w Winner) String() string {
+	switch w {
+	case WinnerSecond:
+		return "second"
+	case WinnerUnclear:
+		return "unclear"
+	case WinnerFirst:
+		return "first"
+	default:
+		return "?"
+	}
+}
+
+func (w Winner) PrettyString() string {
+	switch w {
+	case WinnerSecond:
+		return "Second"
+	case WinnerUnclear:
+		return "Unclear"
+	case WinnerFirst:
+		return "First"
+	default:
+		return "?"
+	}
+}
+
 type EloDiff struct {
 	Low  float64
 	Avg  float64

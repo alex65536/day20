@@ -42,12 +42,27 @@ const (
 	ContestFailed
 )
 
+func (k ContestStatusKind) String() string {
+	switch k {
+	case ContestRunning:
+		return "running"
+	case ContestSucceeded:
+		return "success"
+	case ContestAborted:
+		return "abort"
+	case ContestFailed:
+		return "fail"
+	default:
+		return "?"
+	}
+}
+
 func (k ContestStatusKind) PrettyString() string {
 	switch k {
 	case ContestRunning:
 		return "Running"
 	case ContestSucceeded:
-		return "Succeeded"
+		return "Success"
 	case ContestAborted:
 		return "Aborted"
 	case ContestFailed:
