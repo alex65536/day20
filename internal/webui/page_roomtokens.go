@@ -82,7 +82,7 @@ func (roomtokensDataBuilder) Build(ctx context.Context, bc builderCtx) (any, err
 		switch req.FormValue("action") {
 		case "delete":
 			if err := cfg.UserManager.DeleteRoomToken(ctx, req.FormValue("hash"), bc.FullUser.ID); err != nil {
-				log.Error("could not delete room token", slogx.Err(err))
+				log.Warn("could not delete room token", slogx.Err(err))
 				return nil, fmt.Errorf("delete room token: %w", err)
 			}
 			return nil, bc.Redirect("/roomtokens")

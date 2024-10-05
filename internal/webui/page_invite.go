@@ -79,7 +79,7 @@ func (inviteDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) 
 				Perms:     lnk.Perms,
 			}
 			if err := cfg.UserManager.SetPassword(&user, []byte(password)); err != nil {
-				log.Error("could not set password to user", slogx.Err(err))
+				log.Warn("could not set password to user", slogx.Err(err))
 				return userauth.User{}, []string{"internal server error"}
 			}
 			if err := cfg.UserManager.CreateUser(ctx, user, lnk); err != nil {
@@ -89,7 +89,7 @@ func (inviteDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) 
 				if errors.Is(err, userauth.ErrUserAlreadyExists) {
 					return userauth.User{}, []string{"given username is already taken"}
 				}
-				log.Error("could not create user in db", slogx.Err(err))
+				log.Warn("could not create user in db", slogx.Err(err))
 				return userauth.User{}, []string{"internal server error"}
 			}
 			return user, nil

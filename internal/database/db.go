@@ -62,6 +62,7 @@ func (d *DB) Close() {
 	db, err := d.db.DB()
 	if err != nil {
 		d.log.Error("could not get underlying db", slogx.Err(err))
+		return
 	}
 	err = db.Close()
 	if err != nil {

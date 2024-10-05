@@ -38,7 +38,7 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 		if errors.Is(err, userauth.ErrUserNotFound) {
 			return nil, httputil.MakeError(http.StatusNotFound, "user not found")
 		}
-		log.Error("could not fetch target user", slogx.Err(err))
+		log.Warn("could not fetch target user", slogx.Err(err))
 		return nil, fmt.Errorf("fetch target user: %w", err)
 	}
 
@@ -89,11 +89,11 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 					return err.Error()
 				}
 				if err := cfg.UserManager.SetPassword(ourUser, []byte(newPassword)); err != nil {
-					log.Error("could not change password", slogx.Err(err))
+					log.Warn("could not change password", slogx.Err(err))
 					return "internal server error"
 				}
 				if err := cfg.UserManager.UpdateUser(ctx, *ourUser); err != nil {
-					log.Error("could not save user", slogx.Err(err))
+					log.Warn("could not save user", slogx.Err(err))
 					return "internal server error"
 				}
 				bc.UpgradeSession(makeUserInfo(ourUser))
@@ -120,7 +120,7 @@ func (userDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				if err := cfg.UserManager.UpdateUser(ctx, targetUser, userauth.UpdateUserOptions{
 					InvalidatePerms: true,
 				}); err != nil {
-					log.Error("could not save user", slogx.Err(err))
+					log.Warn("could not save user", slogx.Err(err))
 					return "internal server error"
 				}
 				return ""

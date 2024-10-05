@@ -199,7 +199,7 @@ func (r *room) Stop(log *slog.Logger) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.job != nil {
-		log.Error("stopping room with unfinished job", slog.String("room_id", r.ID()))
+		panic("stopping room with unfinished job")
 	}
 	if r.stopped {
 		return

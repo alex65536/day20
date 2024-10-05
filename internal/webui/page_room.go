@@ -109,13 +109,13 @@ func (a *roomPGNAttachImpl) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 			writeHTTPErr(log, w, httputil.MakeError(http.StatusNotFound, "game not ready"))
 			return
 		}
-		log.Error("could not build game", slogx.Err(err))
+		log.Warn("could not build game", slogx.Err(err))
 		writeHTTPErr(log, w, httputil.MakeError(http.StatusInternalServerError, "error building game"))
 		return
 	}
 	pgn, err := game.PGN()
 	if err != nil {
-		log.Error("could not convert game", slogx.Err(err))
+		log.Warn("could not convert game", slogx.Err(err))
 		writeHTTPErr(log, w, httputil.MakeError(http.StatusInternalServerError, "error converting game"))
 		return
 	}

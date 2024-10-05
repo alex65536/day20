@@ -48,7 +48,7 @@ func (loginDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error) {
 				if errors.Is(err, userauth.ErrUserNotFound) {
 					return userauth.User{}, "invalid username or password"
 				}
-				log.Error("could not get user", slogx.Err(err))
+				log.Warn("could not get user", slogx.Err(err))
 				return userauth.User{}, "internal server error"
 			}
 			if !cfg.UserManager.VerifyPassword(&user, []byte(password)) {

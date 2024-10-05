@@ -105,13 +105,13 @@ func (invitesDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 				if errors.As(err, &verifyErr) {
 					return nil, httputil.MakeError(http.StatusForbidden, verifyErr.Unwrap().Error())
 				}
-				log.Error("could not create invite link", slogx.Err(err))
+				log.Warn("could not create invite link", slogx.Err(err))
 				return nil, fmt.Errorf("create invite link: %w", err)
 			}
 			return nil, bc.Redirect("/invites")
 		case "delete":
 			if err := cfg.UserManager.DeleteInviteLink(ctx, req.FormValue("hash"), bc.FullUser.ID); err != nil {
-				log.Error("could not delete invite link", slogx.Err(err))
+				log.Warn("could not delete invite link", slogx.Err(err))
 				return nil, fmt.Errorf("delete invite link: %w", err)
 			}
 			return nil, bc.Redirect("/invites")

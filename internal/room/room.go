@@ -297,7 +297,7 @@ func (j *job) Do(ctx context.Context) error {
 		case <-ctx.Done():
 			status = roomapi.UpdateAbort
 		default:
-			j.log.Error("cannot make battle", slogx.Err(err))
+			j.log.Warn("cannot make battle", slogx.Err(err))
 		}
 		if err := j.preFinish(ctx, status, fmt.Errorf("make battle: %w", err)); err != nil {
 			return fmt.Errorf("prefinish: %w", err)
@@ -317,7 +317,7 @@ func (j *job) Do(ctx context.Context) error {
 	watcher.Close()
 	if err != nil {
 		<-updateCh
-		j.log.Error("cannot run battle", slogx.Err(err))
+		j.log.Warn("cannot run battle", slogx.Err(err))
 		if err := j.preFinish(ctx, roomapi.UpdateFail, fmt.Errorf("run battle: %w", err)); err != nil {
 			return fmt.Errorf("prefinish: %w", err)
 		}

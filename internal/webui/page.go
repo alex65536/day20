@@ -89,7 +89,7 @@ func (bc *builderCtx) UpgradeSession(newUser *userInfo) {
 		session.Values["user"] = &newUser
 	}
 	if err := session.Save(bc.Req, bc.writer); err != nil {
-		log.Error("apply new session", slogx.Err(err))
+		log.Error("could not apply new session", slogx.Err(err))
 	}
 }
 
@@ -101,14 +101,14 @@ func (bc *builderCtx) ResetSession(newUser *userInfo) {
 		delete(session.Values, k)
 	}
 	if err := session.Save(bc.Req, bc.writer); err != nil {
-		log.Error("expire current session", slogx.Err(err))
+		log.Error("could not expire current session", slogx.Err(err))
 	}
 	session, _ = bc.Config.sessionStore.New(bc.Req, sessionName)
 	if newUser != nil {
 		session.Values["user"] = &newUser
 	}
 	if err := session.Save(bc.Req, bc.writer); err != nil {
-		log.Error("apply new session", slogx.Err(err))
+		log.Error("could not apply new session", slogx.Err(err))
 	}
 	bc.UserInfo = clone.TrivialPtr(newUser)
 	bc.FullUser = nil
@@ -138,7 +138,7 @@ func (p *page) renderHTMXError(log *slog.Logger, w http.ResponseWriter, httpErr 
 	httpErr.ApplyHeaders(w)
 	w.WriteHeader(httpErr.Code())
 	if _, err := w.Write(b.Bytes()); err != nil {
-		log.Error("error writing page data", slogx.Err(err))
+		log.Info("error writing page data", slogx.Err(err))
 		return
 	}
 }
@@ -178,7 +178,7 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 	httpErr.ApplyHeaders(w)
 	w.WriteHeader(httpErr.Code())
 	if _, err := w.Write(b.Bytes()); err != nil {
-		log.Error("error writing page data", slogx.Err(err))
+		log.Info("error writing page data", slogx.Err(err))
 		return
 	}
 }
@@ -257,7 +257,7 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-		log.Error("error building page data", slogx.Err(err))
+		log.Warn("error building page data", slogx.Err(err))
 		writeHTTPErr(log, w, fmt.Errorf("build page"))
 		return
 	}
@@ -282,7 +282,7 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(b.Bytes()); err != nil {
-		log.Error("error writing page data", slogx.Err(err))
+		log.Info("error writing page data", slogx.Err(err))
 		return
 	}
 }
