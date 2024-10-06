@@ -34,7 +34,7 @@ func Uint(n uint64, prec int) string {
 			fracMul /= 10
 		}
 		fracRem := (n - rem*mul) / fracMul
-		for frac > 0 && fracRem % 10 == 0 {
+		for frac > 0 && fracRem%10 == 0 {
 			frac--
 			fracRem /= 10
 		}
