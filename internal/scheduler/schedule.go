@@ -3,6 +3,8 @@ package scheduler
 import (
 	"fmt"
 	"maps"
+
+	"github.com/alex65536/day20/internal/util/randutil"
 )
 
 type ScheduleKey struct {
@@ -12,6 +14,7 @@ type ScheduleKey struct {
 
 type Schedule struct {
 	mp map[ScheduleKey]int64
+	rs randutil.Set[ScheduleKey]
 }
 
 func NewSchedule() Schedule {
@@ -20,6 +23,7 @@ func NewSchedule() Schedule {
 
 func (s Schedule) Clone() Schedule {
 	s.mp = maps.Clone(s.mp)
+	s.rs = s.rs.Clone()
 	return s
 }
 
@@ -34,6 +38,7 @@ func (s *Schedule) Add(k ScheduleKey, delta int64) bool {
 	switch {
 	case delta > 0:
 		s.mp[k] += delta
+		_ = s.rs.Add(k)
 		return true
 	case delta == 0:
 		return true
@@ -42,25 +47,29 @@ func (s *Schedule) Add(k ScheduleKey, delta int64) bool {
 		switch {
 		case v < 0:
 			delete(s.mp, k)
+			_ = s.rs.Del(k)
 			return false
 		case v == 0:
 			delete(s.mp, k)
+			_ = s.rs.Del(k)
 			return true
 		default:
 			s.mp[k] = v
+			_ = s.rs.Add(k)
 			return true
 		}
 	}
 }
 
 func (s *Schedule) Peek() (ScheduleKey, bool) {
-	for k, v := range s.mp {
-		if v == 0 {
-			panic("must not happen")
-		}
-		return k, true
+	if len(s.mp) == 0 {
+		return ScheduleKey{}, false
 	}
-	return ScheduleKey{}, false
+	k := s.rs.Get()
+	if _, ok := s.mp[k]; !ok {
+		panic("must not happen")
+	}
+	return k, true
 }
 
 func (j JobInfo) ScheduleKey() ScheduleKey {
