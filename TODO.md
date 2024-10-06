@@ -1,7 +1,5 @@
 # TODO
 
-- write `README.md`
-- include copyright info for all 3rd party assets (incl. CSS, JS & chess pieces)
 - probably panic completely when one of the HTTP handlers panic (?)
 - add chat and event system in rooms
 - show current contest info in rooms
@@ -16,3 +14,4 @@
 - make neat progress bars to show contest progress
 - add gzip compression for Room API handlers
 - add tournaments "all vs all"
+- add link to GitHub in page footer
