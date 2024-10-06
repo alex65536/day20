@@ -162,9 +162,9 @@ button[class^='icon-']:empty, button[class*=' icon-']:empty,
 @media screen and (max-width: 750px) {
   .room-layout {
     grid-template-areas:
-      'white'
-      'board'
       'black'
+      'board'
+      'white'
       'bttns';
     grid-auto-columns: 100%;
   }
@@ -197,7 +197,7 @@ button[class^='icon-']:empty, button[class*=' icon-']:empty,
 
 .player-header {
   display: flex;
-  flex-flow: row wrap;
+  flex-flow: row;
   align-items: center;
   column-gap: 0.5em;
 }
