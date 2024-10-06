@@ -119,7 +119,8 @@ func (w *Warnings) Delta(old int64) *Warnings {
 		panic("must not happen")
 	}
 	return &Warnings{
-		Warn: slices.Clone(w.Warn[old:w.Version]),
+		Warn:    slices.Clone(w.Warn[old:w.Version]),
+		Version: w.Version,
 	}
 }
 
