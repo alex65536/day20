@@ -202,6 +202,16 @@ button[class^='icon-']:empty, button[class*=' icon-']:empty,
   column-gap: 0.5em;
 }
 
+.player-info {
+  overflow: hidden;
+}
+
+.player-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .white-chess-clock, .black-chess-clock {
   min-width: 5em;
   font-size: 1.6em;

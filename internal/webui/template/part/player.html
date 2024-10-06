@@ -14,7 +14,7 @@
         </script>
       </section>
     {{end}}
-    <section>
+    <section class="player-info">
       <div>
         <span class="player-color">{{.ColorText}}</span>
         {{if .Active}}
@@ -23,7 +23,7 @@
           <span class="icon-record-outline icon-cl-gray"></span>
         {{end}}
       </div>
-      <div>{{.Name}}</div>
+      <div class="player-name">{{.Name}}</div>
     </section>
   </section>
   <section class="pv">{{.PV}}</section>
