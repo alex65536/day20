@@ -144,13 +144,13 @@ Thanks to Jay Honnold for [node-tlcv](https://github.com/jhonnold/node-tlcv), wh
 
 **A:** Hopefully, every one which is able to run Go. Windows is supported by Battlefield, but `day20-server` and `day20-room` were not tested under Windows.
 
-**Q:** Why HTMX, not &lquot;insert JS framework name here&rquot;?
+**Q:** Why HTMX, not \<insert JS framework name here\>?
 
 **A:** First, simplicity. Second, I never worked with any serious JS framework, and HTMX seemed simple enough if you have only plain HTML/CSS/JS knowledge. Third, it would complicate building the application substantially.
 
 **Q:** Why SQLite? It's a toy database, isn't it?
 
-**A:** Currently, the server cannot scale up to one instance, so anything more complex will not get any benefits. So, SQLite is chosen due to simplicity. Though, Day20 uses `gorm` and supporting, for example, Postgres, wouldn't take much effort.
+**A:** Currently, the server cannot scale up to one instance, so anything more complex will not get any benefits. So, SQLite is chosen due to simplicity. Though, Day20 uses `gorm` and it wouldn't take much effort to support, for example, Postgres.
 
 **Q:** Rewrite it in Rust!
 
