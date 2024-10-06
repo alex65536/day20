@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alex65536/day20/internal/util/human"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -54,6 +55,9 @@ func parseCommonTemplate(cfg *Config) (*template.Template, error) {
 				return "-∞"
 			}
 			return strconv.FormatFloat(f, 'f', prec, 64)
+		},
+		"humanInt64": func(prec int, v int64) string {
+			return human.Int(v, prec)
 		},
 	})
 	if err := parseTemplate(t, "template/layout/base.html"); err != nil {

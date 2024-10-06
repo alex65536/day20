@@ -2,7 +2,6 @@ package webui
 
 import (
 	"html/template"
-	"strconv"
 
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/go-chess/chess"
@@ -22,9 +21,9 @@ type playerPartData struct {
 	Clock     *playerClockData
 	Score     string
 	PV        string
-	Depth     string
-	Nodes     string
-	NPS       string
+	Depth     int64
+	Nodes     int64
+	NPS       int64
 	AJAXAttrs template.HTMLAttr
 }
 
@@ -49,9 +48,9 @@ func buildPlayerPartData(col chess.Color, state *delta.JobState) *playerPartData
 		Clock:     nil,
 		Score:     "-",
 		PV:        "",
-		Depth:     "-",
-		Nodes:     "-",
-		NPS:       "-",
+		Depth:     0,
+		Nodes:     0,
+		NPS:       0,
 	}
 	var player *delta.Player
 	if state != nil {
@@ -71,14 +70,8 @@ func buildPlayerPartData(col chess.Color, state *delta.JobState) *playerPartData
 		data.Score = s.String()
 	}
 	data.PV = player.PVS
-	if player.Depth != 0 {
-		data.Depth = strconv.FormatInt(int64(player.Depth), 10)
-	}
-	if player.Nodes != 0 {
-		data.Nodes = strconv.FormatInt(player.Nodes, 10)
-	}
-	if player.NPS != 0 {
-		data.NPS = strconv.FormatInt(player.NPS, 10)
-	}
+	data.Depth = player.Depth
+	data.Nodes = player.Nodes
+	data.NPS = player.NPS
 	return data
 }

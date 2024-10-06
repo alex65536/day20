@@ -34,15 +34,15 @@
     </div>
     <div>
       <div class="key">Depth</div>
-      <div>{{.Depth}}</div>
+      <div>{{if .Depth}}{{.Depth}}{{else}}-{{end}}</div>
     </div>
     <div>
       <div class="key">Nodes</div>
-      <div>{{.Nodes}}</div>
+      <div>{{if .Nodes}}{{.Nodes | humanInt64 4}}{{else}}-{{end}}</div>
     </div>
     <div>
       <div class="key">NPS</div>
-      <div>{{.NPS}}</div>
+      <div>{{if .NPS}}{{.NPS | humanInt64 4}}{{else}}-{{end}}</div>
     </div>
   </section>
 </div>
