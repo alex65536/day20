@@ -2,7 +2,7 @@
 
 Runs and displays confrontations between chess engines.
 
-![docs/screenshot.png](Screenshot)
+![doc/screenshot.png](Screenshot)
 
 ## Main features
 
