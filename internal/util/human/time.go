@@ -1,4 +1,4 @@
-package timeutil
+package human
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func HumanTimeFromBase(base, t time.Time) string {
+func TimeFromBase(base, t time.Time) string {
 	sgnDiff := t.Sub(base)
 	neg := sgnDiff < 0
 	diff := sgnDiff

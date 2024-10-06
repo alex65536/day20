@@ -3,7 +3,7 @@ package webui
 import (
 	"time"
 
-	"github.com/alex65536/day20/internal/util/timeutil"
+	"github.com/alex65536/day20/internal/util/human"
 )
 
 type humanTimePartData struct {
@@ -14,6 +14,6 @@ type humanTimePartData struct {
 func buildHumanTimePartData(now, t time.Time) *humanTimePartData {
 	return &humanTimePartData{
 		Full:  t.Local().Format(time.RFC1123),
-		Human: timeutil.HumanTimeFromBase(now, t.Local()),
+		Human: human.TimeFromBase(now, t.Local()),
 	}
 }
