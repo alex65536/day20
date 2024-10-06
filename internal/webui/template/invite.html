@@ -7,7 +7,7 @@
 
   <div class="card">
     <header>Register</header>
-    <form class="htmx-form" hx-post="{{.InviteVal | printf "/invite/%v" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+    <form class="htmx-form" {{template "part/post_form" (.InviteVal | printf "/invite/%v" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
       {{.CSRFField}}
       <section>
         <label>

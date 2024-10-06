@@ -34,7 +34,7 @@
         <td class="expand">{{$tok.Label}}</td>
         <td><code>{{$tok.ShortHash}}</code></td>
         <td>
-          <form class="inline htmx-form" hx-post="{{"/roomtokens" | asURL}}" hx-swap="none">
+          <form class="inline htmx-form" {{template "part/post_form" ("/roomtokens" | asURL)}} hx-swap="none">
             {{$.CSRFField}}
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="hash" value="{{$tok.FullHash}}">

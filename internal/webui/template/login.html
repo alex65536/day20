@@ -3,7 +3,7 @@
 {{define "body"}}
   <div class="card">
     <header>Log in</header>
-    <form class="htmx-form" hx-post="{{"/login" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+    <form class="htmx-form" {{template "part/post_form" ("/login" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
       {{.CSRFField}}
 
       <section>

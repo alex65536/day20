@@ -9,7 +9,7 @@
 
   <div class="card">
     <header>Generate invite link</header>
-    <form class="htmx-form" hx-post="{{"/invites" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+    <form class="htmx-form" {{template "part/post_form" ("/invites" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
       {{.CSRFField}}
       <input type="hidden" name="action" value="invite">
       <section>
@@ -59,7 +59,7 @@
         </td>
         <td class="nowrap">
           <span class="button icon-copy" onclick="hrefToClipboard(this.closest('tr'), 'td > a')"></span>
-          <form class="inline htmx-form" hx-post="{{"/invites" | asURL}}" hx-swap="none">
+          <form class="inline htmx-form" {{template "part/post_form" ("/invites" | asURL)}} hx-swap="none">
             {{$.CSRFField}}
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="hash" value="{{$inv.Hash}}">

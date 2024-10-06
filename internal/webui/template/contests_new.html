@@ -3,7 +3,7 @@
 {{define "body"}}
   <div class="card">
     <header>Create new contest</header>
-    <form class="htmx-form" hx-post="{{"/contests/new" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+    <form class="htmx-form" {{template "part/post_form" ("/contests/new" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
       {{.CSRFField}}
 
       <section>

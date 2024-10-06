@@ -6,7 +6,7 @@
   <div>
     <a class="button" href="{{.ID | printf "/contest/%v/pgn" | asURL}}" target="_blank">PGN</a>
     {{if .CanCancel}}
-      <form class="inline htmx-form" hx-post="{{.ID | printf "/contest/%v" | asURL}}" hx-swap="none">
+      <form class="inline htmx-form" {{template "part/post_form" (.ID | printf "/contest/%v" | asURL)}} hx-swap="none">
         {{.CSRFField}}
         <input type="hidden" name="action" value="cancel">
         <input class="error" type="submit" value="Cancel">

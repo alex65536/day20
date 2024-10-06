@@ -16,7 +16,7 @@
   {{if .CanChangePassword}}
     <div class="card">
       <header>Change password</header>
-      <form class="htmx-form" hx-post="{{.User.Username | printf "/user/%v" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+      <form class="htmx-form" {{template "part/post_form" (.User.Username | printf "/user/%v" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
         {{.CSRFField}}
         <input type="hidden" name="action" value="password">
         <section>
@@ -44,7 +44,7 @@
   {{if .CanChangePerms}}
     <div class="card">
       <header>Change permissions</header>
-      <form class="htmx-form" hx-post="{{.User.Username | printf "/user/%v" | asURL}}" hx-target="find .errors" hx-swap="innerHTML">
+      <form class="htmx-form" {{template "part/post_form" (.User.Username | printf "/user/%v" | asURL)}} hx-target="find .errors" hx-swap="innerHTML">
         {{.CSRFField}}
         <input type="hidden" name="action" value="perms">
         <section>
