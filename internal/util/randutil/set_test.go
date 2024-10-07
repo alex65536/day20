@@ -44,7 +44,7 @@ func TestSetStress(t *testing.T) {
 			}
 			delete(gather, v)
 			iters++
-			if iters > len(actual) * numbers * 1_000 {
+			if iters > len(actual)*numbers*1_000 {
 				t.Fatalf("cannot collect all the numbers for too long")
 			}
 		}

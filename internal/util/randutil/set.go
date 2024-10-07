@@ -45,7 +45,7 @@ func (s *Set[T]) Del(val T) bool {
 	if !ok {
 		return false
 	}
-	tail := len(s.v)-1
+	tail := len(s.v) - 1
 	if idx != tail {
 		s.v[idx], s.v[tail] = s.v[tail], s.v[idx]
 		s.mp[s.v[idx]] = idx
