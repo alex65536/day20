@@ -147,7 +147,7 @@ func (p *page) renderHTMXError(log *slog.Logger, w http.ResponseWriter, httpErr 
 	}
 }
 
-func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *httputil.Error) {
+func (p *page) renderError(log *slog.Logger, req *http.Request, w http.ResponseWriter, httpErr *httputil.Error) {
 	if 300 <= httpErr.Code() && httpErr.Code() <= 399 {
 		log.Info("send http redirect",
 			slog.Int("code", httpErr.Code()),
@@ -158,7 +158,7 @@ func (p *page) renderError(log *slog.Logger, w http.ResponseWriter, httpErr *htt
 		return
 	}
 
-	log.Info("send http status error",
+	tagLogWithReq(log, req).Info("send http status error",
 		slog.Int("code", httpErr.Code()),
 		slog.String("msg", httpErr.Message()),
 	)
@@ -257,7 +257,7 @@ func (p *page) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if bc.IsHTMX() {
 				p.renderHTMXError(log, w, httpErr)
 			} else {
-				p.renderError(log, w, httpErr)
+				p.renderError(log, req, w, httpErr)
 			}
 			return
 		}
@@ -307,11 +307,14 @@ func newPage(
 	if err != nil {
 		return nil, fmt.Errorf("template \"error\": %w", err)
 	}
+	if name != "" {
+		log = log.With(slog.String("page", name))
+	}
 	return &page{
 		name:     name,
 		cfg:      cfg,
 		pageOpts: pageOpts,
-		log:      log.With(slog.String("page", name)),
+		log:      log,
 		b:        builder,
 		tmpl:     tmpl,
 		errTmpl:  errTempl,

@@ -22,11 +22,8 @@ type middleware struct {
 
 func (m *middleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req = httputil.WrapRequest(req)
-	m.b.Log.Info("handle request",
+	tagLogWithReq(m.b.Log, req).Info("handle request",
 		slog.String("rid", httputil.ExtractReqID(req.Context())),
-		slog.String("uri", req.RequestURI),
-		slog.String("method", req.Method),
-		slog.String("addr", req.RemoteAddr),
 		slog.String("kind", m.kind),
 	)
 	switch m.kind {

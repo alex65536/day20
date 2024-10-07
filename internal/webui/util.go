@@ -13,3 +13,12 @@ func writeHTTPErr(log *slog.Logger, w http.ResponseWriter, err error) {
 		log.Info("error writing error response", slogx.Err(err))
 	}
 }
+
+func tagLogWithReq(log *slog.Logger, req *http.Request) *slog.Logger {
+	return log.With(
+		slog.String("uri", req.RequestURI),
+		slog.String("method", req.Method),
+		slog.String("addr", req.RemoteAddr),
+		slog.String("user_agent", req.Header.Get("User-Agent")),
+	)
+}
