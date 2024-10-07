@@ -19,6 +19,6 @@ func tagLogWithReq(log *slog.Logger, req *http.Request) *slog.Logger {
 		slog.String("uri", req.RequestURI),
 		slog.String("method", req.Method),
 		slog.String("addr", req.RemoteAddr),
-		slog.String("user_agent", req.Header.Get("User-Agent")),
+		slog.String("user_agent", req.UserAgent()),
 	)
 }
