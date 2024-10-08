@@ -15,3 +15,4 @@
 - add gzip compression for Room API handlers
 - add tournaments "all vs all"
 - add link to GitHub in page footer
+- rate limit number of requests sent from room to server
