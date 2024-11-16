@@ -8,7 +8,7 @@ Runs and displays confrontations between chess engines.
 
 - Run matches between chess engines
   * UCI is supported, WinBoard is not supported for now
-- Watch the games between engines live
+- Watch games between the engines live
 - Analyze the statistical significance of match results
 
 ## Structure
@@ -75,9 +75,9 @@ day20-server -o day20.toml
 The server is up now! Grab the invite link from the logs and register the admin user with it.
 
 Then, configure the rooms. You can have as many rooms as you want.
-Also note that static IP is not required to run a room, you can run it on any device that has stable Internet connection.
+Also note that static IP is not required to run a room, you can run it on any device that has stable enough Internet connection.
 
-First, go to your profile in the web UI, click Room tokens and create a new room token.
+First, go to your profile in the web UI, click _Room tokens_ and create a new room token.
 Download it and save it into `token.txt`.
 
 Then, install
@@ -89,9 +89,9 @@ go install github.com/alex65536/day20/cmd/day20-room@latest
 Create configuration and place it into `day20.toml`.
 
 ```
-# Number of matches allowed to run in parallel. Should not exceed number of CPU cores.
+# Number of matches allowed to run in parallel. Should not exceed the number of CPU cores.
 rooms = 4
-# Replace YOUR_DOMAIN with the domain where you want to run it.
+# Replace YOUR_DOMAIN with the domain where you run the server.
 url = "https://YOUR_DOMAIN/api/room"
 token-file = "token.txt"
 
@@ -103,10 +103,10 @@ allow-dirs = ["engines"]
 Finally, run the room:
 
 ```
-day20-server -o day20.toml
+day20-room -o day20.toml
 ```
 
-After this, the newly created rooms should appear on the main page in the web UI.
+After doing this, the newly created rooms should appear on the main page in the web UI.
 
 Now, you are ready to run some matches between engines.
 
@@ -132,7 +132,7 @@ Others:
 
 Thanks to Graham Banks `<gbanksnz at gmail.com>` for opening books used by Day20.
 
-Thanks to Jay Honnold for [node-tlcv](https://github.com/jhonnold/node-tlcv), which was a source of inspiration for Day20.
+Thanks to Jay Honnold for [node-tlcv](https://github.com/jhonnold/node-tlcv), which was the source of inspiration for Day20.
 
 ## Mini FAQ
 
@@ -146,11 +146,11 @@ Thanks to Jay Honnold for [node-tlcv](https://github.com/jhonnold/node-tlcv), wh
 
 **Q:** Why HTMX, not \<insert JS framework name here\>?
 
-**A:** First, simplicity. Second, I never worked with any serious JS framework, and HTMX seemed simple enough if you have only plain HTML/CSS/JS knowledge. Third, it would complicate building the application substantially.
+**A:** First, simplicity. Second, I have never worked with any serious JS framework, and HTMX seemed simple enough if you have only plain HTML/CSS/JS knowledge. Third, it would complicate building the application substantially.
 
 **Q:** Why SQLite? It's a toy database, isn't it?
 
-**A:** Currently, the server cannot scale up to one instance, so anything more complex will not get any benefits. So, SQLite is chosen due to simplicity. Though, Day20 uses `gorm` and it wouldn't take much effort to support, for example, Postgres.
+**A:** Currently, the server cannot scale up to one instance, so anything more complex will not create any benefits. So, SQLite is chosen due to simplicity. Though, Day20 uses `gorm` and it wouldn't take much effort to support, for example, Postgres.
 
 **Q:** Rewrite it in Rust!
 
