@@ -4,8 +4,8 @@ github.com/BurntSushi/toml v1.4.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/NYTimes/gziphandler v1.1.1 h1:ZUDjpQae29j0ryrS0u/B8HZfJBtBQHjqw2rQ2cqUQ3I=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
-github.com/alex65536/go-chess v0.9.3 h1:JI8Yyts+oeq0MT5yuQ08k5JL4LtUgEFh/xdkuY5sAOc=
-github.com/alex65536/go-chess v0.9.3/go.mod h1:RLnilagik8/l77UUbTlmv/iTiPHNOx31QcG2u0hnHKA=
+github.com/alex65536/go-chess v0.9.7 h1:QHSQdP7q929Cxw2QJXu/qh89LntGC5qgYIJYoYSlQQc=
+github.com/alex65536/go-chess v0.9.7/go.mod h1:RLnilagik8/l77UUbTlmv/iTiPHNOx31QcG2u0hnHKA=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
