@@ -11,7 +11,7 @@ import (
 func TestSimple(t *testing.T) {
 	require.NoError(t, Init(filepath.Join("testdata", "syzygy")))
 	defer Free()
-	for _, tc := range []struct{
+	for _, tc := range []struct {
 		fen string
 		wdl WDL
 		bad bool
