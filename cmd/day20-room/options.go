@@ -6,10 +6,11 @@ import (
 )
 
 type Options struct {
-	Rooms     int                `toml:"rooms"`
-	URL       string             `toml:"url"`
-	TokenFile string             `toml:"token-file"`
-	Engines   *enginemap.Options `toml:"engines"`
+	Rooms         int                `toml:"rooms"`
+	URL           string             `toml:"url"`
+	TokenFile     string             `toml:"token-file"`
+	Engines       *enginemap.Options `toml:"engines"`
+	TablebasePath string             `toml:"tablebase-path"`
 }
 
 func (o Options) Clone() Options {

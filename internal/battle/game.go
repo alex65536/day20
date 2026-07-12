@@ -154,7 +154,7 @@ func (g *GameExt) PGN() (string, error) {
 	switch g.Game.Outcome().Verdict() {
 	case chess.VerdictTimeForfeit:
 		_, _ = b.WriteString(makePGNTag("Termination", "time forfeit"))
-	case chess.VerdictResign:
+	case chess.VerdictResign, chess.VerdictDrawAgreement:
 		_, _ = b.WriteString(makePGNTag("Termination", "adjudication"))
 	case chess.VerdictEngineError:
 		_, _ = b.WriteString(makePGNTag("Termination", "rules infraction"))

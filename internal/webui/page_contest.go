@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/stat"
 	"github.com/alex65536/day20/internal/userauth"
@@ -34,17 +35,18 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 		CanCancel bool
 		CSRFField template.HTML
 
-		Kind           scheduler.ContestKind
-		First          string
-		Second         string
-		Status         scheduler.ContestStatus
-		Progress       *progressPartData
-		Played         int64
-		Total          int64
-		FixedTime      *time.Duration
-		TimeControl    *clock.Control
-		ScoreThreshold int32
-		OpeningBook    scheduler.OpeningBook
+		Kind               scheduler.ContestKind
+		First              string
+		Second             string
+		Status             scheduler.ContestStatus
+		Progress           *progressPartData
+		Played             int64
+		Total              int64
+		FixedTime          *time.Duration
+		TimeControl        *clock.Control
+		ScoreThreshold     int32
+		TablebaseTerminate battle.TablebaseTerminatePolicy
+		OpeningBook        scheduler.OpeningBook
 
 		FirstWin         int64
 		Draw             int64
@@ -81,17 +83,18 @@ func (contestDataBuilder) Build(ctx context.Context, bc builderCtx) (any, error)
 			CanCancel: canCancel && !data.Status.Kind.IsFinished(),
 			CSRFField: csrf.TemplateField(req),
 
-			Kind:           info.Kind,
-			First:          info.Players[0].Name,
-			Second:         info.Players[1].Name,
-			Status:         data.Status,
-			Progress:       buildProgressPartData(data.Match.Played(), info.Match.Games),
-			Played:         data.Match.Played(),
-			Total:          info.Match.Games,
-			FixedTime:      info.FixedTime,
-			TimeControl:    info.TimeControl,
-			ScoreThreshold: info.ScoreThreshold,
-			OpeningBook:    info.OpeningBook,
+			Kind:               info.Kind,
+			First:              info.Players[0].Name,
+			Second:             info.Players[1].Name,
+			Status:             data.Status,
+			Progress:           buildProgressPartData(data.Match.Played(), info.Match.Games),
+			Played:             data.Match.Played(),
+			Total:              info.Match.Games,
+			FixedTime:          info.FixedTime,
+			TimeControl:        info.TimeControl,
+			ScoreThreshold:     info.ScoreThreshold,
+			TablebaseTerminate: info.TablebaseTerminate,
+			OpeningBook:        info.OpeningBook,
 
 			FirstWin:         data.Match.FirstWin,
 			Draw:             data.Match.Draw,

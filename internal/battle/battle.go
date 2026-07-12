@@ -10,6 +10,7 @@ import (
 	"github.com/alex65536/go-chess/uci"
 	"github.com/alex65536/go-chess/util/maybe"
 
+	"github.com/alex65536/day20/internal/fathom"
 	"github.com/alex65536/day20/internal/opening"
 	"github.com/alex65536/day20/internal/util/clone"
 )
@@ -19,6 +20,27 @@ type Watcher interface {
 	OnGameUpdated(game *GameExt, clk maybe.Maybe[clock.Clock])
 	OnGameFinished(game *GameExt, warn Warnings)
 	OnEngineInfo(color chess.Color, status uci.SearchStatus)
+}
+
+type TablebaseTerminatePolicy string
+
+const (
+	TablebaseNever TablebaseTerminatePolicy = ""
+	TablebaseDrawOnly TablebaseTerminatePolicy = "draw_only"
+	TablebaseAlways TablebaseTerminatePolicy = "always"
+)
+
+func (p TablebaseTerminatePolicy) String() string {
+	switch p {
+	case TablebaseNever:
+		return "never"
+	case TablebaseDrawOnly:
+		return "only on draws"
+	case TablebaseAlways:
+		return "always"
+	default:
+		return "invalid"
+	}
 }
 
 type Options struct {
@@ -33,6 +55,8 @@ type Options struct {
 	// Terminate the game when both sides agree that one of them wins with Score >= ScoreThreshold.
 	// Must be set to zero for no threshold.
 	ScoreThreshold int32
+
+	TablebaseTerminate TablebaseTerminatePolicy
 
 	EventName string
 }
@@ -133,17 +157,64 @@ func (b *Battle) predictWin(score maybe.Maybe[uci.Score]) int {
 	}
 }
 
-func (b *Battle) checkResign(game *clock.Game, scores []maybe.Maybe[uci.Score]) {
-	if game.IsFinished() || len(scores) < 2 || b.Options.ScoreThreshold == 0 {
-		return
+func (b *Battle) checkResignTerminate(game *clock.Game, scores []maybe.Maybe[uci.Score]) bool {
+	if len(scores) < 2 || b.Options.ScoreThreshold == 0 {
+		return false
 	}
 	p1, p2 := b.predictWin(scores[len(scores)-2]), b.predictWin(scores[len(scores)-1])
 	side := game.CurSide()
 	if p1 > 0 && p2 < 0 {
 		_ = game.Finish(chess.MustWinOutcome(chess.VerdictResign, side))
+		return true
 	}
 	if p1 < 0 && p2 > 0 {
 		_ = game.Finish(chess.MustWinOutcome(chess.VerdictResign, side.Inv()))
+		return true
+	}
+	return false
+}
+
+func (b *Battle) checkEndgameTerminate(game *clock.Game) bool {
+	if b.Options.TablebaseTerminate == TablebaseNever {
+		return false
+	}
+	wdl, ok := fathom.ProbeWDL(game.CurBoard())
+	if !ok {
+		return false
+	}
+	side := game.CurSide()
+	switch wdl {
+	case fathom.WDLWin:
+		if b.Options.TablebaseTerminate == TablebaseAlways {
+			_ = game.Finish(chess.MustWinOutcome(chess.VerdictResign, side))
+			return true
+		}
+	case fathom.WDLLoss:
+		if b.Options.TablebaseTerminate == TablebaseAlways {
+			_ = game.Finish(chess.MustWinOutcome(chess.VerdictResign, side.Inv()))
+			return true
+		}
+	case fathom.WDLDraw, fathom.WDLCursedWin, fathom.WDLBlessedLoss:
+		if b.Options.TablebaseTerminate == TablebaseAlways ||
+			b.Options.TablebaseTerminate == TablebaseDrawOnly {
+			_ = game.Finish(chess.MustDrawOutcome(chess.VerdictDrawAgreement))
+			return true
+		}
+	default:
+		panic("must not happen")
+	}
+	return false
+}
+
+func (b *Battle) checkEarlyTerminate(game *clock.Game, scores []maybe.Maybe[uci.Score]) {
+	if game.IsFinished() {
+		return
+	}
+	if b.checkResignTerminate(game, scores) {
+		return
+	}
+	if b.checkEndgameTerminate(game) {
+		return
 	}
 }
 
@@ -280,7 +351,7 @@ func (b *Battle) doImpl(ctx context.Context, watcher Watcher) (gameExt *GameExt,
 			if game.Inner().Len() != len(gameExt.Scores) {
 				gameExt.Scores = append(gameExt.Scores, search.Status().Score)
 			}
-			b.checkResign(game, gameExt.Scores)
+			b.checkEarlyTerminate(game, gameExt.Scores)
 			return nil
 		}(); err != nil {
 			warn = append(warn, fmt.Sprintf("engine %q: error: %v", b.pool(side).Name(), err))

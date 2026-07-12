@@ -5,6 +5,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/roomkeeper"
 	"github.com/alex65536/day20/internal/stat"
@@ -99,15 +100,16 @@ func NewStatusFailed(reason string) ContestStatus {
 }
 
 type ContestSettings struct {
-	Name           string
-	FixedTime      *time.Duration
-	TimeControl    *clock.Control `gorm:"serializer:chess"`
-	OpeningBook    OpeningBook    `gorm:"embedded;embeddedPrefix:opening_"`
-	ScoreThreshold int32
-	TimeMargin     *time.Duration
-	Kind           ContestKind
-	Players        []roomapi.JobEngine `gorm:"serializer:json"`
-	Match          *MatchSettings      `gorm:"-"`
+	Name               string
+	FixedTime          *time.Duration
+	TimeControl        *clock.Control `gorm:"serializer:chess"`
+	OpeningBook        OpeningBook    `gorm:"embedded;embeddedPrefix:opening_"`
+	ScoreThreshold     int32
+	TablebaseTerminate battle.TablebaseTerminatePolicy
+	TimeMargin         *time.Duration
+	Kind               ContestKind
+	Players            []roomapi.JobEngine `gorm:"serializer:json"`
+	Match              *MatchSettings      `gorm:"-"`
 }
 
 func (s *ContestSettings) Validate() error {

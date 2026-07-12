@@ -155,7 +155,8 @@ func (j *job) closeBattle(battle *battle.Battle) {
 
 func (j *job) makeBattle(ctx context.Context) (*battle.Battle, error) {
 	opts := battle.Options{
-		ScoreThreshold: j.desc.ScoreThreshold,
+		ScoreThreshold:     j.desc.ScoreThreshold,
+		TablebaseTerminate: j.desc.TablebaseTerminate,
 	}
 	if j.desc.TimeMargin != nil {
 		opts.DeadlineMargin = maybe.Some(*j.desc.TimeMargin)

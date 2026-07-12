@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/delta"
 	"github.com/alex65536/day20/internal/util/clone"
 	"github.com/alex65536/day20/internal/util/httputil"
@@ -89,15 +90,16 @@ func (e JobEngine) Clone() JobEngine {
 }
 
 type Job struct {
-	ID             string          `json:"id" gorm:"primaryKey"`
-	FixedTime      *time.Duration  `json:"fixed_time,omitempty"`
-	TimeControl    *clock.Control  `json:"time_control,omitempty" gorm:"serializer:chess"`
-	StartBoard     *chess.RawBoard `json:"start_board,omitempty" gorm:"serializer:chess"`
-	StartMoves     []chess.UCIMove `json:"start_moves,omitempty" gorm:"serializer:json"`
-	ScoreThreshold int32           `json:"score_threshold,omitempty"`
-	TimeMargin     *time.Duration  `json:"time_margin,omitempty"`
-	White          JobEngine       `json:"white" gorm:"serializer:json"`
-	Black          JobEngine       `json:"black" gorm:"serializer:json"`
+	ID                 string                          `json:"id" gorm:"primaryKey"`
+	FixedTime          *time.Duration                  `json:"fixed_time,omitempty"`
+	TimeControl        *clock.Control                  `json:"time_control,omitempty" gorm:"serializer:chess"`
+	StartBoard         *chess.RawBoard                 `json:"start_board,omitempty" gorm:"serializer:chess"`
+	StartMoves         []chess.UCIMove                 `json:"start_moves,omitempty" gorm:"serializer:json"`
+	ScoreThreshold     int32                           `json:"score_threshold,omitempty"`
+	TablebaseTerminate battle.TablebaseTerminatePolicy `json:"tablebase_terminate,omitempty"`
+	TimeMargin         *time.Duration                  `json:"time_margin,omitempty"`
+	White              JobEngine                       `json:"white" gorm:"serializer:json"`
+	Black              JobEngine                       `json:"black" gorm:"serializer:json"`
 }
 
 func (j Job) Clone() Job {

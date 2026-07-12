@@ -11,6 +11,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/alex65536/day20/internal/enginemap"
+	"github.com/alex65536/day20/internal/fathom"
 	"github.com/alex65536/day20/internal/room"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/util/slogx"
@@ -77,6 +78,13 @@ func main() {
 				return fmt.Errorf("read token file: %w", err)
 			}
 			token = strings.TrimSpace(string(data))
+		}
+
+		if opts.TablebasePath != "" {
+			if err := fathom.Init(opts.TablebasePath); err != nil {
+				return fmt.Errorf("init tablebase: %w", err)
+			}
+			defer fathom.Free()
 		}
 
 		roomCmd.SilenceUsage = true

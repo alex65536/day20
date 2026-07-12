@@ -66,6 +66,12 @@
           <td>{{.ScoreThreshold}}</td>
         </tr>
       {{end}}
+      {{if .TablebaseTerminate}}
+        <tr>
+          <td>Terminate by tablebase</td>
+          <td>{{.TablebaseTerminate}}</td>
+        </tr>
+      {{end}}
       <tr>
         <td>Opening book</td>
         <td>

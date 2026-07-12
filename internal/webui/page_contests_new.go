@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/alex65536/day20/internal/battle"
 	"github.com/alex65536/day20/internal/roomapi"
 	"github.com/alex65536/day20/internal/scheduler"
 	"github.com/alex65536/day20/internal/userauth"
@@ -124,6 +125,17 @@ func (contestsNewDataBuilder) Build(ctx context.Context, bc builderCtx) (any, er
 				} else {
 					settings.ScoreThreshold = int32(tv)
 				}
+			}
+
+			switch req.FormValue("tablebase-terminate") {
+			case "", "never":
+				settings.TablebaseTerminate = battle.TablebaseNever
+			case "draw-only":
+				settings.TablebaseTerminate = battle.TablebaseDrawOnly
+			case "always":
+				settings.TablebaseTerminate = battle.TablebaseAlways
+			default:
+				errs = append(errs, "bad tablebase terminate policy")
 			}
 
 			settings.Kind = scheduler.ContestMatch

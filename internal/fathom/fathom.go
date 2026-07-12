@@ -72,6 +72,11 @@ func ProbeWDL(b *chess.Board) (WDL, bool) {
 		// pass them to Fathom properly, so return early here.
 		return 0, false
 	}
+	bbAll := b.BbColor(chess.ColorWhite) | b.BbColor(chess.ColorBlack)
+	if bbAll.Len() > 7 {
+		// Just an extra defensive check.
+		return 0, false
+	}
 	ep := C.uint(0)
 	if epCoord, ok := b.EpDest().TryGet(); ok {
 		ep = C.uint(epCoord.FlippedRank())
