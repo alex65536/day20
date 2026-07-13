@@ -1,7 +1,7 @@
 package fathom
 
 /*
-#cgo CFLAGS: -I vendor/
+#cgo CFLAGS: -I contrib/
 #include "tbprobe.c"
 */
 import "C"
